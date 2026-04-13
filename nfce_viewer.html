@@ -1,0 +1,2849 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0b0e14;--s1:#111520;--s2:#171c2b;--s3:#1e2438;
+  --b1:#232b42;--b2:#2d3755;
+  --accent:#3b82f6;--accent2:#60a5fa;
+  --green:#22d3a4;--amber:#f59e0b;--red:#f43f5e;
+  --text:#e2e8f4;--muted:#5a6a8a;--muted2:#8898b8;
+  --mono:'JetBrains Mono',monospace;--sans:'Sora',sans-serif;--r:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:16px;padding:0 20px;height:52px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--accent2);text-transform:uppercase}
+.brand-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 10px var(--accent)}50%{opacity:.5;box-shadow:0 0 4px var(--accent)}}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.chip{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.08em;padding:3px 10px;border-radius:99px;border:1px solid var(--b2);color:var(--muted2)}
+.chip.active{border-color:var(--green);color:var(--green)}
+.tabs{display:flex;align-items:center;gap:2px;background:var(--s1);border-bottom:1px solid var(--b1);padding:0 20px;flex-shrink:0}
+.tab{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.tab-badge{font-size:9px;font-weight:600;background:var(--b1);color:var(--muted2);padding:2px 6px;border-radius:99px;transition:all .15s}
+.tab.active .tab-badge{background:var(--accent);color:#fff}
+.body{display:flex;flex:1;overflow:hidden}
+.sidebar{
+  width:260px;flex-shrink:0;
+  background:var(--s1);border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+}
+/* Bloco genérico da sidebar — nunca cresce além do conteúdo */
+.sb-block{padding:14px 16px;border-bottom:1px solid var(--b1);flex-shrink:0}
+/* Blocos de filtro: quando visíveis, crescem para preencher o espaço restante */
+#sb-fc,#sb-fp{flex-shrink:0}
+.sb-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.drop-zone{border:2px dashed var(--b2);border-radius:var(--r);padding:18px 12px;text-align:center;cursor:pointer;transition:all .2s;background:var(--s2);display:flex;flex-direction:column;align-items:center;gap:8px}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:rgba(59,130,246,.06)}
+.drop-zone-icon{font-size:26px;opacity:.6}
+.drop-zone-text{font-size:11px;color:var(--muted2);line-height:1.5}
+.drop-zone-text strong{color:var(--accent2);font-weight:500}
+#folder-input{display:none}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 12px}
+.stat-n{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1;margin-bottom:4px}
+.stat-n.blue{color:var(--accent2)}.stat-n.green{color:var(--green)}.stat-n.amber{color:var(--amber)}.stat-n.red{color:var(--red)}
+.stat-lbl{font-size:10px;color:var(--muted);letter-spacing:.04em}
+.filter-stack{display:flex;flex-direction:column;gap:6px}
+.fi{background:var(--s2);border:1px solid var(--b1);color:var(--text);font-family:var(--sans);font-size:12px;padding:7px 10px;border-radius:var(--r);outline:none;width:100%;transition:border-color .15s}
+.fi:focus{border-color:var(--accent)}.fi::placeholder{color:var(--muted)}
+.err-scroll{max-height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.err-row{font-family:var(--mono);font-size:10px;color:var(--red);padding:3px 7px;background:rgba(244,63,94,.07);border-radius:3px;border-left:2px solid var(--red);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--s1);border-bottom:1px solid var(--b1);flex-shrink:0}
+.toolbar-info{font-family:var(--mono);font-size:11px;color:var(--muted);margin-right:auto}
+.toolbar-info b{color:var(--accent2);font-weight:500}
+.toolbar-hint{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--r);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;border:1px solid var(--b2);color:var(--muted2)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent2)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.col-wrap{position:relative}
+.col-drop{position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--b2);border-radius:8px;padding:10px;z-index:200;min-width:210px;display:none;box-shadow:0 12px 32px rgba(0,0,0,.6)}
+.col-drop.open{display:block}
+.col-opt{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;font-size:11px;color:var(--text)}
+.col-opt input{accent-color:var(--accent)}
+.tbl-wrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+thead{position:sticky;top:0;z-index:10;background:var(--s2)}
+th{padding:9px 12px;text-align:left;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--b1);white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s}
+th:hover{color:var(--accent2)}
+th.asc::after{content:' ↑';color:var(--accent)}
+th.desc::after{content:' ↓';color:var(--accent)}
+td{padding:7px 12px;border-bottom:1px solid rgba(35,43,66,.6);white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+tr:hover td{background:rgba(23,28,43,.8)}
+.td-num{color:var(--accent2);text-align:right}
+.td-src{color:var(--muted2);font-size:10px}
+.td-desc{font-family:var(--sans);font-size:11px;max-width:260px}
+.td-ok{color:var(--green)}.td-err{color:var(--red)}
+.td-date{color:var(--muted2);font-size:10px}
+.td-amber{color:var(--amber);font-weight:500}
+
+/* ── CADASTRO rows ── */
+.cad-row{cursor:pointer;transition:background .1s}
+.cad-row:hover td{background:var(--s2)}
+.cad-row.is-open td{background:var(--s3);border-bottom:none}
+.expand-arrow{display:inline-block;font-size:9px;color:var(--muted2);transition:transform .2s;margin-right:4px}
+.cad-row.is-open .expand-arrow{transform:rotate(90deg);color:var(--accent2)}
+.detail-row{display:none;background:var(--s3)}
+.detail-row.is-open{display:table-row}
+.detail-cell{padding:0 !important;border-bottom:2px solid var(--accent) !important;border-top:none !important}
+.detail-inner{padding:14px 20px 16px 52px;display:flex;gap:28px;flex-wrap:wrap}
+.d-hist{flex:1;min-width:280px}
+.d-hist-title{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.h-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px}
+.h-table th{padding:4px 8px;text-align:left;color:var(--muted);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--b2)}
+.h-table td{padding:5px 8px;border-bottom:1px solid rgba(35,43,66,.4);color:var(--text)}
+.h-table tr:last-child td{border:none}
+.h-table .hn{text-align:right;color:var(--accent2)}
+.h-table .newest td{color:var(--green)}
+.d-meta{display:flex;flex-direction:column;gap:8px;min-width:170px}
+.dm-item{display:flex;flex-direction:column;gap:2px}
+.dm-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.dm-val{font-family:var(--mono);font-size:12px;color:var(--text)}
+.dm-val.green{color:var(--green)}.dm-val.amber{color:var(--amber)}
+.bar-wrap{margin-top:10px;padding-top:10px;border-top:1px solid var(--b1)}
+.bar-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.bar-track{height:3px;background:var(--b2);border-radius:2px}
+.bar-fill{height:3px;background:var(--accent);border-radius:2px}
+.bar-range{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px}
+.bar-range .cur{color:var(--amber);font-weight:600}
+
+/* ── FILE LIST ── */
+.file-list{flex:1;overflow-y:auto}
+.file-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid rgba(35,43,66,.5);transition:background .12s}
+.file-row:hover{background:var(--s2)}
+.file-icon{font-size:14px;flex-shrink:0}
+.file-info{flex:1;min-width:0}
+.file-name{font-family:var(--mono);font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-path{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+.file-prods{font-family:var(--mono);font-size:10px;color:var(--accent2)}
+.file-status{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pager{display:flex;align-items:center;gap:6px;padding:9px 16px;background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0}
+.pg-info{font-family:var(--mono);font-size:10px;color:var(--muted);margin-right:auto}
+.pg-info b{color:var(--accent2);font-weight:500}
+.pg-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:var(--s2);border:1px solid var(--b1);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+.pg-btn:hover:not([disabled]){border-color:var(--accent);color:var(--accent2)}
+.pg-btn[disabled]{opacity:.25;cursor:not-allowed}
+.pg-btn.cur{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--muted)}
+.empty-ico{font-size:38px;opacity:.35}
+.empty-t{font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+.empty-s{font-size:11px;color:var(--muted)}
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.active{display:flex}
+#panel-dash.active,#panel-imp.active{overflow-y:auto}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--s2);border:1px solid var(--b2);border-left:3px solid var(--green);padding:9px 16px;border-radius:var(--r);font-family:var(--mono);font-size:11px;color:var(--text);z-index:999;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}.toast.err{border-left-color:var(--red)}
+.spin{width:20px;height:20px;border:2px solid var(--b2);border-top-color:var(--accent);border-radius:50%;animation:_sp .6s linear infinite}
+@keyframes _sp{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ── SPED ── */
+.sped-drop{border:2px dashed var(--b2);border-radius:var(--r);padding:14px 12px;text-align:center;cursor:pointer;transition:all .2s;background:var(--s2);display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:8px}
+.sped-drop:hover,.sped-drop.drag{border-color:var(--amber);background:rgba(245,158,11,.06)}
+.sped-drop-icon{font-size:20px;opacity:.6}
+.sped-drop-text{font-size:11px;color:var(--muted2);line-height:1.4}
+.sped-drop-text strong{color:var(--amber);font-weight:500}
+#sped-input{display:none}
+.sped-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.sped-chip{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:99px;background:var(--s3);border:1px solid var(--b2);color:var(--muted2)}
+.sped-chip.loaded{border-color:var(--amber);color:var(--amber)}
+
+/* Sped sub-tabs */
+.sped-tabs{display:flex;gap:0;border-bottom:1px solid var(--b1);flex-shrink:0;background:var(--s2)}
+.sped-tab{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;padding:9px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.sped-tab:hover{color:var(--text)}.sped-tab.active{color:var(--amber);border-bottom-color:var(--amber)}
+.sped-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.sped-panel.active{display:flex}
+
+/* Sped cards grid */
+.sped-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:16px;overflow-y:auto}
+.sped-card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px}
+.sped-card-title{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sped-card-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0}
+.sped-kv{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(35,43,66,.5);gap:8px}
+.sped-kv:last-child{border:none}
+.sped-k{font-family:var(--mono);font-size:10px;color:var(--muted);flex-shrink:0}
+.sped-v{font-family:var(--mono);font-size:11px;color:var(--text);text-align:right;word-break:break-all}
+.sped-v.green{color:var(--green)}.sped-v.amber{color:var(--amber)}.sped-v.blue{color:var(--accent2)}
+
+/* Sped tables */
+.sped-tbl-wrap{flex:1;overflow:auto}
+.sped-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.sped-tbl thead{position:sticky;top:0;z-index:5;background:var(--s2)}
+.sped-tbl th{padding:8px 12px;text-align:left;font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--b1);white-space:nowrap;cursor:pointer;user-select:none}
+.sped-tbl th:hover{color:var(--accent2)}
+.sped-tbl td{padding:6px 12px;border-bottom:1px solid rgba(35,43,66,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.sped-tbl tr:hover td{background:var(--s2)}
+.sped-tbl .n{text-align:right;color:var(--accent2)}
+.sped-tbl .am{color:var(--amber)}
+.sped-tbl .gr{color:var(--green)}
+.sped-tbl .mu{color:var(--muted2);font-size:10px}
+.sped-search{background:var(--s2);border:1px solid var(--b1);color:var(--text);font-family:var(--sans);font-size:12px;padding:5px 10px;border-radius:var(--r);outline:none;transition:border-color .15s;width:220px}
+.sped-search:focus{border-color:var(--amber)}
+.sped-search::placeholder{color:var(--muted)}
+
+/* ── PROGRESS OVERLAY ── */
+#progress-overlay{
+  position:fixed;inset:0;z-index:8000;
+  background:rgba(11,14,20,.88);
+  backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:0;
+}
+#progress-overlay.show{display:flex}
+.prog-box{
+  background:var(--s1);border:1px solid var(--b2);border-radius:12px;
+  padding:32px 40px 28px;min-width:380px;max-width:500px;
+  display:flex;flex-direction:column;gap:18px;
+}
+.prog-title{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);
+  display:flex;align-items:center;gap:10px;
+}
+.prog-title-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+  animation:pulse 1s ease-in-out infinite;
+}
+.prog-stage{font-size:12px;color:var(--muted2);font-family:var(--mono);min-height:16px}
+.prog-file{
+  font-size:11px;color:var(--muted);font-family:var(--mono);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  min-height:14px;
+}
+.prog-bar-track{
+  height:4px;background:var(--b2);border-radius:2px;overflow:hidden;
+}
+.prog-bar-fill{
+  height:4px;background:var(--accent);border-radius:2px;
+  transition:width .15s ease-out;
+}
+.prog-stats{
+  display:flex;gap:16px;flex-wrap:wrap;
+}
+.prog-stat{
+  font-family:var(--mono);font-size:10px;
+  display:flex;flex-direction:column;gap:2px;
+}
+.prog-stat-n{font-size:16px;font-weight:600;color:var(--accent2);line-height:1}
+.prog-stat-l{color:var(--muted);font-size:9px;letter-spacing:.06em;text-transform:uppercase}
+.prog-steps{display:flex;flex-direction:column;gap:6px}
+.prog-step{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  transition:color .2s;
+}
+.prog-step.done{color:var(--green)}
+.prog-step.active{color:var(--text);font-weight:500}
+.prog-step-ico{width:14px;text-align:center;font-size:11px;flex-shrink:0}
+
+/* Import panel status cards */
+.imp-status{
+  margin-top:12px;padding:10px 14px;border-radius:var(--r);
+  background:var(--s3);border-left:3px solid var(--muted);
+  font-family:var(--mono);font-size:11px;color:var(--muted2);
+  transition:all .3s;
+}
+.imp-status.ok{border-left-color:var(--green);color:var(--green)}
+.imp-status.loading{border-left-color:var(--accent);color:var(--accent2)}
+.imp-status.err{border-left-color:var(--red);color:var(--red)}
+
+/* ── LOGIN ── */
+#login-overlay{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+}
+.login-box{
+  background:var(--s1);
+  border:1px solid var(--b2);
+  border-radius:12px;
+  padding:40px 44px 36px;
+  width:340px;
+  display:flex;flex-direction:column;align-items:center;gap:0;
+}
+.login-brand{
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:13px;font-weight:600;
+  letter-spacing:.14em;color:var(--accent2);text-transform:uppercase;
+  margin-bottom:28px;
+}
+.login-brand-dot{
+  width:9px;height:9px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 10px var(--accent);
+  animation:pulse 2s ease-in-out infinite;
+}
+.login-label{
+  font-family:var(--mono);font-size:9px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:6px;align-self:flex-start;
+}
+.login-input{
+  width:100%;background:var(--s2);border:1px solid var(--b2);
+  color:var(--text);font-family:var(--mono);font-size:13px;
+  padding:10px 14px;border-radius:var(--r);outline:none;
+  transition:border-color .15s;margin-bottom:16px;
+}
+.login-input:focus{border-color:var(--accent);}
+.login-input::placeholder{color:var(--muted)}
+.login-btn{
+  width:100%;padding:11px;border-radius:var(--r);
+  background:var(--accent);color:#fff;
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  cursor:pointer;border:none;transition:all .15s;margin-top:4px;
+}
+.login-btn:hover{background:var(--accent2);}
+.login-btn:active{transform:scale(.98);}
+.login-err{
+  font-family:var(--mono);font-size:11px;color:var(--red);
+  margin-top:10px;min-height:16px;text-align:center;
+}
+</style>
+</head>
+<body>
+
+<!-- PROGRESS OVERLAY -->
+<div id="progress-overlay">
+  <div class="prog-box">
+    <div class="prog-title"><div class="prog-title-dot"></div><span id="prog-title-txt">Processando</span></div>
+    <div class="prog-steps" id="prog-steps"></div>
+    <div>
+      <div class="prog-stage" id="prog-stage"></div>
+      <div class="prog-file"  id="prog-file"></div>
+    </div>
+    <div class="prog-bar-track"><div class="prog-bar-fill" id="prog-bar" style="width:0%"></div></div>
+    <div class="prog-stats" id="prog-stats"></div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-brand-dot"></div>
+      Data Viewer
+    </div>
+    <div class="login-label">Usuário</div>
+    <input class="login-input" id="li-user" type="text" placeholder="usuário" autocomplete="username"
+           onkeydown="if(event.key==='Enter')document.getElementById('li-pass').focus()">
+    <div class="login-label">Senha</div>
+    <input class="login-input" id="li-pass" type="password" placeholder="••••••"
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-err" id="li-err"></div>
+  </div>
+</div>
+
+<header>
+  <div class="brand"><div class="brand-dot"></div>Data Viewer</div>
+  <div class="header-right">
+    <div class="chip" id="chip-status">Sem dados</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" id="tab-dash"   onclick="switchTab('dash')">📊 Dashboard</div>
+  <div class="tab" id="tab-imp"    onclick="switchTab('imp')">📥 Importações</div>
+  <div class="tab" id="tab-xml"    onclick="switchTab('xml')">🗂️ XML<span class="tab-badge" id="badge-xml">0</span></div>
+  <div class="tab" id="tab-sped"   onclick="switchTab('sped')">⛽ SPED<span class="tab-badge" id="badge-sped">0</span></div>
+  <div class="tab" id="tab-cons"   onclick="switchTab('cons')">🔗 Consolidar<span class="tab-badge" id="badge-cons">0</span></div>
+</div>
+
+<div class="body">
+  <aside class="sidebar">
+    <div class="sb-block" id="sb-stats">
+      <div class="sb-label">Resumo geral</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-n blue"  id="st-xml">0</div><div class="stat-lbl">Arquivos XML</div></div>
+        <div class="stat-card"><div class="stat-n green" id="st-skus">0</div><div class="stat-lbl">SKUs únicos</div></div>
+        <div class="stat-card"><div class="stat-n red"   id="st-erros">0</div><div class="stat-lbl">Erros</div></div>
+        <div class="stat-card"><div class="stat-n amber" id="st-valor">R$0</div><div class="stat-lbl">Total vProd</div></div>
+      </div>
+    </div>
+
+    <div class="sb-block" id="sb-sped-status" style="display:none">
+      <div class="sb-label" style="color:var(--amber)">SPED carregado</div>
+      <div class="sped-chips" id="sped-chips"></div>
+    </div>
+
+    <div class="sb-block" id="sb-fc" style="display:none;flex-direction:column">
+      <div class="sb-label">Filtros — Cadastro</div>
+      <div class="filter-stack">
+        <input class="fi" id="fc-desc" placeholder="Descrição..." oninput="filtrarCad()">
+        <input class="fi" id="fc-cod"  placeholder="Código (cProd)..." oninput="filtrarCad()">
+        <input class="fi" id="fc-ean"  placeholder="EAN..." oninput="filtrarCad()">
+        <input class="fi" id="fc-ncm"  placeholder="NCM..." oninput="filtrarCad()">
+      </div>
+    </div>
+
+    <div class="sb-block" id="sb-fp" style="display:none;flex-direction:column">
+      <div class="sb-label">Filtros — Produtos</div>
+      <div class="filter-stack">
+        <input class="fi" id="f-desc" placeholder="Descrição (xProd)..." oninput="filtrar()">
+        <input class="fi" id="f-ncm"  placeholder="NCM..." oninput="filtrar()">
+        <input class="fi" id="f-cfop" placeholder="CFOP..." oninput="filtrar()">
+        <input class="fi" id="f-arq"  placeholder="Nome do arquivo..." oninput="filtrar()">
+      </div>
+    </div>
+
+    <div class="sb-block" id="sb-erros" style="display:none">
+      <div class="sb-label" style="color:var(--red)">Arquivos com erro</div>
+      <div class="err-scroll" id="erros-list"></div>
+    </div>
+
+    <!-- Inputs hidden, usados pela aba Importações -->
+    <input type="file" id="folder-input" webkitdirectory multiple accept=".xml" onchange="processFiles(this.files)" style="display:none">
+    <input type="file" id="sped-input" multiple accept=".txt,.TXT" onchange="processSpedFiles(this.files)" style="display:none">
+    <input type="file" id="sped-folder-input" webkitdirectory multiple accept=".txt,.TXT" onchange="processSpedFiles(this.files)" style="display:none">
+    <input type="file" id="csv-input" accept=".csv" onchange="importCSV(this.files[0])" style="display:none">
+  </aside>
+
+  <main>
+    <!-- PAINEL DASHBOARD -->
+    <div class="panel active" id="panel-dash">
+      <div style="flex:1;overflow-y:auto;padding:20px">
+        <div id="dash-content">
+          <div class="empty" style="height:60vh">
+            <div class="empty-ico">📊</div>
+            <div class="empty-t">Sem dados carregados</div>
+            <div class="empty-s">Importe XMLs e/ou SPED na aba Importações</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAINEL IMPORTAÇÕES -->
+    <div class="panel" id="panel-imp">
+      <div style="flex:1;overflow-y:auto;padding:24px 28px;max-width:900px">
+
+        <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);margin-bottom:20px">Fontes de dados</div>
+
+        <!-- XML -->
+        <div class="sped-card" style="margin-bottom:16px">
+          <div class="sped-card-title">XMLs de NFC-e / NF-e</div>
+          <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Selecione uma pasta — o sistema busca recursivamente em todas as subpastas.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="drop-zone" style="flex:1;min-width:200px" id="drop-zone"
+                 onclick="document.getElementById('folder-input').click()"
+                 ondragover="event.preventDefault();this.classList.add('drag')"
+                 ondragleave="this.classList.remove('drag')"
+                 ondrop="handleDrop(event)">
+              <div class="drop-zone-icon">📂</div>
+              <div class="drop-zone-text"><strong>Selecionar pasta XML</strong><br><span style="font-size:10px;opacity:.6">ou arraste aqui</span></div>
+            </div>
+          </div>
+          <div id="xml-status" class="imp-status" style="display:none"></div>
+        </div>
+
+        <!-- SPED -->
+        <div class="sped-card" style="margin-bottom:16px">
+          <div class="sped-card-title">SPED Fiscal / MovEstoque / MovPISCOFINS</div>
+          <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Selecione uma pasta (busca recursiva) ou arquivos .TXT individuais.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="sped-drop" style="flex:1;min-width:180px" id="sped-folder-drop"
+                 onclick="document.getElementById('sped-folder-input').click()"
+                 ondragover="event.preventDefault();this.classList.add('drag')"
+                 ondragleave="this.classList.remove('drag')"
+                 ondrop="handleSpedFolderDrop(event)">
+              <div class="sped-drop-icon">📁</div>
+              <div class="sped-drop-text"><strong>Selecionar pasta SPED</strong><br><span style="font-size:10px;opacity:.6">busca recursiva em subpastas</span></div>
+            </div>
+            <div class="sped-drop" style="flex:1;min-width:180px" id="sped-drop"
+                 onclick="document.getElementById('sped-input').click()"
+                 ondragover="event.preventDefault();this.classList.add('drag')"
+                 ondragleave="this.classList.remove('drag')"
+                 ondrop="handleSpedDrop(event)">
+              <div class="sped-drop-icon">📋</div>
+              <div class="sped-drop-text"><strong>Selecionar arquivos .TXT</strong><br><span style="font-size:10px;opacity:.6">múltiplos arquivos</span></div>
+            </div>
+          </div>
+          <div id="sped-status" class="imp-status" style="display:none"></div>
+        </div>
+
+        <!-- CSV -->
+        <div class="sped-card">
+          <div class="sped-card-title">CSV complementar (para Consolidar)</div>
+          <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Complementa o cadastro consolidado. Precisa de coluna <code style="background:var(--s3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px">codigo</code> ou <code style="background:var(--s3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px">cProd</code>.</p>
+          <div class="sped-drop" style="max-width:360px" id="csv-drop"
+               onclick="document.getElementById('csv-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag')"
+               ondragleave="this.classList.remove('drag')"
+               ondrop="handleCsvDrop(event)">
+            <div class="sped-drop-icon">📄</div>
+            <div class="sped-drop-text"><strong>Selecionar arquivo CSV</strong><br><span style="font-size:10px;opacity:.6">separador ; ou , — UTF-8 ou Latin-1</span></div>
+          </div>
+          <div id="csv-log" class="imp-status" style="display:none"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PAINEL XML (sub-abas: Arquivos | Cadastro | Produtos) -->
+    <div class="panel" id="panel-xml">
+      <div class="sped-tabs">
+        <div class="sped-tab active" id="xtab-files" onclick="switchXmlTab('files')">📁 Arquivos<span class="tab-badge" id="badge-files" style="margin-left:6px">0</span></div>
+        <div class="sped-tab"        id="xtab-cad"   onclick="switchXmlTab('cad')">🏷️ SKUs únicos<span class="tab-badge" id="badge-cad" style="margin-left:6px">0</span></div>
+      </div>
+
+      <!-- arquivos -->
+      <div class="sped-panel active" id="xpanel-files">
+        <div class="toolbar">
+          <div class="toolbar-info"><b id="fi-count">0</b> arquivos encontrados</div>
+          <input class="fi" style="width:200px;padding:5px 10px" id="f-file-search" placeholder="Buscar arquivo..." oninput="renderFileList()">
+          <button class="btn btn-ghost" onclick="exportFileListCSV()">⬇ CSV</button>
+        </div>
+        <div class="file-list" id="file-list">
+          <div class="empty"><div class="empty-ico">📂</div><div class="empty-t">Nenhum XML carregado</div><div class="empty-s">Use a aba Importações</div></div>
+        </div>
+      </div>
+
+      <!-- cadastro -->
+      <div class="sped-panel" id="xpanel-cad">
+    <!-- PAINEL CADASTRO -->
+    <div class="panel" id="panel-cad">
+      <div class="toolbar">
+        <div class="toolbar-info"><b id="ci-total">0</b> SKUs</div>
+        <span class="toolbar-hint">▸ clique em uma linha para ver histórico</span>
+        <div class="col-wrap">
+          <button class="btn btn-ghost" onclick="toggleCadColDrop()">⚙ Colunas</button>
+          <div class="col-drop" id="cad-col-drop">
+            <div class="sb-label" style="margin-bottom:6px">Colunas visíveis</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <button class="btn btn-ghost" style="padding:3px 8px;font-size:9px" onclick="cadColAll(true)">Todas</button>
+              <button class="btn btn-ghost" style="padding:3px 8px;font-size:9px" onclick="cadColAll(false)">Nenhuma</button>
+            </div>
+            <div id="cad-col-opts" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="exportCadCSV()">⬇ Exportar CSV</button>
+      </div>
+      <div class="tbl-wrap" id="cad-wrap">
+        <div class="empty"><div class="empty-ico">🏷️</div><div class="empty-t">Nenhum cadastro disponível</div><div class="empty-s">Selecione uma pasta com arquivos XML</div></div>
+      </div>
+      <div class="pager" id="cad-pager" style="display:none">
+        <div class="pg-info">Página <b id="cpg-cur">1</b> de <b id="cpg-tot">1</b></div>
+        <button class="pg-btn" id="cpg-prev" onclick="cadPage(-1)">‹</button>
+        <div id="cpg-btns"></div>
+        <button class="pg-btn" id="cpg-next" onclick="cadPage(1)">›</button>
+      </div>
+    </div>
+
+      </div><!-- /xpanel-cad -->
+    </div><!-- /panel-xml -->
+    <!-- PAINEL SPED -->
+    <div class="panel" id="panel-sped">
+      <div class="sped-tabs">
+        <div class="sped-tab active" id="stab-empresa"  onclick="switchSpedTab('empresa')">🏢 Empresa</div>
+        <div class="sped-tab" id="stab-parceiros"       onclick="switchSpedTab('parceiros')">👥 Clientes/Forn.</div>
+        <div class="sped-tab" id="stab-produtos"        onclick="switchSpedTab('produtos')">📦 Produtos</div>
+        <div class="sped-tab" id="stab-combustivel"     onclick="switchSpedTab('combustivel')">⛽ Combustível</div>
+        <div class="sped-tab" id="stab-entradas"        onclick="switchSpedTab('entradas')">📥 Entradas</div>
+        <div class="sped-tab" id="stab-itens"          onclick="switchSpedTab('itens')">📋 Itens C170</div>
+
+      </div>
+
+      <!-- empresa -->
+      <div class="sped-panel active" id="spanel-empresa">
+        <div class="sped-grid" id="sped-empresa-grid">
+          <div class="empty"><div class="empty-ico">📋</div><div class="empty-t">Nenhum SPED carregado</div><div class="empty-s">Use o botão na barra lateral</div></div>
+        </div>
+      </div>
+
+      <!-- parceiros -->
+      <div class="sped-panel" id="spanel-parceiros">
+        <div class="toolbar">
+          <div class="toolbar-info"><b id="sp-parc-count">0</b> parceiros</div>
+          <input class="sped-search" id="sp-parc-q" placeholder="Buscar nome / CNPJ / CPF..." oninput="renderParceiros()">
+          <button class="btn btn-ghost" onclick="exportSpedCSV('parceiros')">⬇ CSV</button>
+        </div>
+        <div class="sped-tbl-wrap"><table class="sped-tbl" id="sp-parc-tbl"><thead><tr>
+          <th>Código</th><th>Nome</th><th>CNPJ/CPF</th><th>IE</th><th>Município</th><th>UF</th><th>Endereço</th>
+        </tr></thead><tbody id="sp-parc-body"></tbody></table></div>
+      </div>
+
+      <!-- produtos -->
+      <div class="sped-panel" id="spanel-produtos">
+        <div class="toolbar">
+          <div class="toolbar-info"><b id="sp-prod-count">0</b> itens</div>
+          <input class="sped-search" id="sp-prod-q" placeholder="Buscar código / descrição / NCM..." oninput="renderSpedProdutos()">
+          <button class="btn btn-ghost" onclick="exportSpedCSV('produtos')">⬇ CSV</button>
+        </div>
+        <div class="sped-tbl-wrap"><table class="sped-tbl" id="sp-prod-tbl"><thead><tr>
+          <th>Código</th><th>Descrição</th><th>EAN</th><th>NCM</th><th>Unidade</th><th>Tipo</th>
+        </tr></thead><tbody id="sp-prod-body"></tbody></table></div>
+      </div>
+
+      <!-- combustivel -->
+      <div class="sped-panel" id="spanel-combustivel">
+        <div class="toolbar">
+          <div class="toolbar-info">Estrutura de <b>bicos</b> e <b>tanques</b></div>
+          <button class="btn btn-ghost" onclick="exportSpedCSV('combustivel')">⬇ CSV</button>
+        </div>
+        <div class="sped-tbl-wrap" id="sped-comb-wrap">
+          <div class="empty"><div class="empty-ico">⛽</div><div class="empty-t">Nenhum dado de combustível</div></div>
+        </div>
+      </div>
+
+      <!-- entradas -->
+      <div class="sped-panel" id="spanel-entradas">
+        <div class="toolbar">
+          <div class="toolbar-info"><b id="sp-ent-count">0</b> notas de entrada</div>
+          <input class="sped-search" id="sp-ent-q" placeholder="Buscar fornecedor / CFOP / chave..." oninput="renderEntradas()">
+          <button class="btn btn-ghost" onclick="exportSpedCSV('entradas')">⬇ CSV</button>
+        </div>
+        <div class="sped-tbl-wrap"><table class="sped-tbl" id="sp-ent-tbl"><thead><tr>
+          <th>Data</th><th>Nº NF</th><th>Fornecedor</th><th>CFOP</th><th>Valor</th><th>Desconto</th><th>IPI</th><th>ICMS ST</th><th>Chave</th>
+        </tr></thead><tbody id="sp-ent-body"></tbody></table></div>
+      </div>
+
+      <!-- itens c170 -->
+      <div class="sped-panel" id="spanel-itens">
+        <div class="toolbar">
+          <div class="toolbar-info"><b id="sp-itens-count">0</b> itens de entrada</div>
+          <input class="sped-search" id="sp-itens-q" placeholder="Código / descrição / CFOP / fornecedor..." oninput="renderItensC170()">
+          <button class="btn btn-ghost" onclick="exportSpedCSV('itens')">⬇ CSV</button>
+        </div>
+        <div class="sped-tbl-wrap"><table class="sped-tbl" id="sp-itens-tbl">
+          <thead><tr>
+            <th style="width:24px"></th>
+            <th>Código</th><th>Descrição</th><th>Unid.</th>
+            <th class="n">Últ. custo unit.</th><th>Última compra</th>
+            <th class="n">Nº compras</th><th class="n">Total comprado</th>
+            <th>CST ICMS ent.</th><th class="n">Aliq.</th><th class="n">Vl.ICMS ent.</th>
+            <th class="n">Vl.ST ent.</th>
+            <th>CST PIS</th><th class="n">Aliq.</th>
+            <th>CST COF.</th><th class="n">Aliq.</th>
+            <th>CFOPs saída</th><th class="n">Vl.ICMS saída</th><th class="n">Vl.ST saída</th>
+          </tr></thead>
+          <tbody id="sp-itens-body"></tbody>
+        </table></div>
+      </div>
+
+    </div>
+    <!-- PAINEL CONSOLIDAR -->
+    <div class="panel" id="panel-cons">
+      <div class="sped-tabs">
+        <div class="sped-tab active" id="ctab-prod" onclick="switchConsTab('prod')">📦 Produtos consolidados</div>
+      </div>
+
+      <!-- sub: produtos consolidados -->
+      <div class="sped-panel active" id="cpanel-prod">
+        <div class="toolbar">
+          <div class="toolbar-info"><b id="cons-count">0</b> SKUs consolidados</div>
+          <input class="sped-search" id="cons-q" placeholder="Código / descrição / NCM / EAN..." oninput="renderConsolidado()">
+          <div class="col-wrap">
+            <button class="btn btn-ghost" onclick="toggleConsColDrop()">⚙ Colunas</button>
+            <div class="col-drop" id="cons-col-drop">
+              <div class="sb-label" style="margin-bottom:6px">Colunas visíveis</div>
+              <div style="display:flex;gap:6px;margin-bottom:8px">
+                <button class="btn btn-ghost" style="padding:3px 8px;font-size:9px" onclick="consColAll(true)">Todas</button>
+                <button class="btn btn-ghost" style="padding:3px 8px;font-size:9px" onclick="consColAll(false)">Nenhuma</button>
+              </div>
+              <div id="cons-col-opts" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="exportConsCSV()">⬇ Exportar CSV</button>
+        </div>
+        <div class="tbl-wrap" id="cons-tbl-wrap">
+          <div class="empty"><div class="empty-ico">🔗</div>
+            <div class="empty-t">Nenhum dado consolidado</div>
+            <div class="empty-s">Carregue XMLs e/ou arquivos SPED para consolidar automaticamente</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════
+//  STATE
+// ═══════════════════
+const NS='http://www.portalfiscal.inf.br/nfe';
+let allFiles=[],allProds=[],filtProds=[];
+let cadMap={},filtCad=[];
+let pg=1,cpg=1;
+const PER=50;
+let sK=null,sD=1,csK='xProd',csD=1;
+let openRow=null;
+
+// Campos numéricos conhecidos (formatação automática com casas decimais)
+const NUM_FIELDS=new Set([
+  // <prod>
+  'qCom','vUnCom','vProd','qTrib','vUnTrib','vDesc','vOutro','vFrete','vSeg',
+  // ICMS
+  'ICMS60_vBC','ICMS60_pICMS','ICMS60_vICMS',
+  'ICMS00_vBC','ICMS00_pICMS','ICMS00_vICMS',
+  'ICMS10_vBC','ICMS10_pICMS','ICMS10_vICMS','ICMS10_vBCST','ICMS10_pICMSST','ICMS10_vICMSST',
+  'ICMS20_vBC','ICMS20_pRedBC','ICMS20_pICMS','ICMS20_vICMS',
+  'ICMS30_vBCST','ICMS30_pICMSST','ICMS30_vICMSST',
+  'ICMS40_vICMSDeson','ICMS50_vBC','ICMS50_pICMS','ICMS50_vICMS',
+  'ICMS70_vBC','ICMS70_pRedBC','ICMS70_pICMS','ICMS70_vICMS',
+  'ICMSSN102_pCredSN','ICMSSN500_vBCSTRet','ICMSSN500_pST','ICMSSN500_vICMSSTRet',
+  'vBC','vICMS','vBCST','vST','vICMSDeson','vFCP','vFCPST','vFCPSTRet',
+  // PIS / COFINS
+  'PISAliq_vBC','PISAliq_pPIS','PISAliq_vPIS',
+  'PISQtde_qBCProd','PISQtde_vAliqProd','PISQtde_vPIS',
+  'PISNT_vPIS','COFINSAliq_vBC','COFINSAliq_pCOFINS','COFINSAliq_vCOFINS',
+  'COFINSQtde_qBCProd','COFINSQtde_vAliqProd','COFINSQtde_vCOFINS',
+  'vPIS','vCOFINS','pPIS','pCOFINS',
+  // IPI
+  'IPI_vIPI','IPI_vBC','IPI_pIPI','IPI_qUnid','IPI_vUnid',
+  'vIPI','vIPIDevol','pIPI',
+  // II
+  'II_vBC','II_vDespAdu','II_vII','II_vIOF',
+]);
+// Campos de texto longo
+const DESC_FIELDS=new Set(['xProd','infAdFisco','obs','xPed','xCont']);
+
+// Colunas dinâmicas — descobertas após carregar os XMLs
+let COLS=[];
+let visCols=new Set();
+
+// Ordem preferencial — <prod> primeiro, depois impostos agrupados
+const PREFERRED_ORDER=[
+  // Identificação
+  'cProd','cEAN','xProd','NCM','CEST','CFOP','uCom',
+  // Valores comerciais
+  'qCom','vUnCom','vProd','vDesc','vOutro','indTot',
+  // Tributação
+  'cEANTrib','uTrib','qTrib','vUnTrib',
+  // ICMS
+  'ICMS00_orig','ICMS00_CST','ICMS00_modBC','ICMS00_vBC','ICMS00_pICMS','ICMS00_vICMS',
+  'ICMS10_orig','ICMS10_CST','ICMS10_vBC','ICMS10_pICMS','ICMS10_vICMS','ICMS10_vBCST','ICMS10_pICMSST','ICMS10_vICMSST',
+  'ICMS20_orig','ICMS20_CST','ICMS20_pRedBC','ICMS20_vBC','ICMS20_pICMS','ICMS20_vICMS',
+  'ICMS30_orig','ICMS30_CST','ICMS30_vBCST','ICMS30_pICMSST','ICMS30_vICMSST',
+  'ICMS40_orig','ICMS40_CST','ICMS40_vICMSDeson','ICMS40_motDesICMS',
+  'ICMS51_orig','ICMS51_CST','ICMS51_vBC','ICMS51_pICMS','ICMS51_vICMS',
+  'ICMS60_orig','ICMS60_CST','ICMS60_vBCSTRet','ICMS60_pST','ICMS60_vICMSSTRet',
+  'ICMS70_orig','ICMS70_CST','ICMS70_pRedBC','ICMS70_vBC','ICMS70_pICMS','ICMS70_vICMS',
+  'ICMSSN101_orig','ICMSSN101_CSOSN','ICMSSN101_pCredSN','ICMSSN101_vCredICMSSN',
+  'ICMSSN102_orig','ICMSSN102_CSOSN',
+  'ICMSSN400_orig','ICMSSN400_CSOSN',
+  'ICMSSN500_orig','ICMSSN500_CSOSN','ICMSSN500_vBCSTRet','ICMSSN500_pST','ICMSSN500_vICMSSTRet',
+  'ICMSSN900_orig','ICMSSN900_CSOSN',
+  // PIS
+  'PISAliq_CST','PISAliq_vBC','PISAliq_pPIS','PISAliq_vPIS',
+  'PISQtde_CST','PISQtde_qBCProd','PISQtde_vAliqProd','PISQtde_vPIS',
+  'PISNT_CST',
+  // COFINS
+  'COFINSAliq_CST','COFINSAliq_vBC','COFINSAliq_pCOFINS','COFINSAliq_vCOFINS',
+  'COFINSQtde_CST','COFINSQtde_qBCProd','COFINSQtde_vAliqProd','COFINSQtde_vCOFINS',
+  'COFINSNT_CST',
+  // IPI
+  'IPI_clEnq','IPI_CNPJProd','IPI_cSelo','IPI_qSelo','IPI_cEnq',
+  'IPITrib_CST','IPITrib_vBC','IPITrib_pIPI','IPITrib_vIPI',
+  'IPINT_CST',
+  // rastro
+  'rastro_nLote','rastro_qLote','rastro_dFab','rastro_dVal','rastro_cAgreg',
+];
+
+function buildDynamicCols(fields){
+  // ── Colunas dinâmicas (referência interna, sem aba Produtos) ──
+  const sorted=[...PREFERRED_ORDER.filter(f=>fields.has(f)),...[...fields].filter(f=>!PREFERRED_ORDER.includes(f)).sort(),'_file'];
+  COLS=sorted.map(k=>({
+    k,
+    lb: k==='_file'?'Arquivo':(fieldLabels[k]||k),
+    t:  k==='_file'?'src': DESC_FIELDS.has(k)?'desc': NUM_FIELDS.has(k)?'num':'text'
+  }));
+  visCols=new Set(COLS.map(c=>c.k));
+
+  // ── Aba Cadastro SKU: campos descobertos + colunas de estatística ──
+  const cadDyn=[...PREFERRED_ORDER.filter(f=>fields.has(f)),...[...fields].filter(f=>!PREFERRED_ORDER.includes(f)).sort()];
+  const cadDynCols=cadDyn.map(k=>({
+    k, lb:(fieldLabels[k]||k), s:true,
+    desc: DESC_FIELDS.has(k),
+    num:  NUM_FIELDS.has(k),
+  }));
+  CAD_COLS=[...cadDynCols,...CAD_STAT_COLS];
+  cadVisCols=new Set(CAD_COLS.map(c=>c.k));
+
+  // Checkboxes do cadastro — separados em dois grupos
+  const cw=document.getElementById('cad-col-opts');
+  cw.innerHTML='';
+
+  // Grupo: campos dos produtos
+  const g1=document.createElement('div');
+  g1.innerHTML=`<div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 0 6px">Campos do produto</div>`;
+  cadDynCols.forEach(col=>{
+    const l=document.createElement('label');
+    l.className='col-opt';
+    l.innerHTML=`<input type="checkbox" checked data-cad="1" onchange="toggleCadCol('${col.k}',this.checked)"> ${col.lb}`;
+    g1.appendChild(l);
+  });
+  cw.appendChild(g1);
+
+  // Grupo: estatísticas calculadas
+  const g2=document.createElement('div');
+  g2.innerHTML=`<div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;padding-top:8px;border-top:1px solid var(--b1)">Estatísticas calculadas</div>`;
+  CAD_STAT_COLS.forEach(col=>{
+    const l=document.createElement('label');
+    l.className='col-opt';
+    l.innerHTML=`<input type="checkbox" checked data-cad="1" onchange="toggleCadCol('${col.k}',this.checked)"> ${col.lb}`;
+    g2.appendChild(l);
+  });
+  cw.appendChild(g2);
+}
+
+(function init(){
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('.col-wrap')){
+      // Fechar todos os dropdowns de coluna que existam no DOM
+      document.querySelectorAll('.col-drop.open').forEach(el=>el.classList.remove('open'));
+    }
+  });
+})();
+
+// ═══════════════════
+//  PROCESSING
+// ═══════════════════
+async function processFiles(fileList){
+  const xmls=[...fileList].filter(f=>f.name.toLowerCase().endsWith('.xml'));
+  if(!xmls.length){toast('Nenhum XML encontrado','err');return;}
+
+  // ── Feedback inicial na aba Importações ──
+  setImpStatus('xml-status','loading',`⏳ Iniciando leitura de ${xmls.length} arquivo(s)...`);
+
+  Prog.show(`Importando XMLs — ${xmls.length} arquivo(s)`,[
+    {label:'Lendo arquivos XML'},
+    {label:'Extraindo campos e impostos'},
+    {label:'Agrupando SKUs'},
+    {label:'Montando colunas dinâmicas'},
+    {label:'Consolidando e atualizando telas'},
+  ]);
+  Prog.step(0,'active',`Lendo 0 de ${xmls.length} arquivo(s)...`);
+  await new Promise(r=>setTimeout(r,30)); // allow repaint
+
+  allFiles=[];allProds=[];cadMap={};discoveredFields.clear();Object.keys(fieldLabels).forEach(k=>delete fieldLabels[k]);
+
+  const CHUNK=50;
+  for(let i=0;i<xmls.length;i+=CHUNK){
+    const batch=xmls.slice(i,i+CHUNK);
+    Prog.file(batch[0].name);
+    await Promise.all(batch.map(f=>parseXML(f)));
+    const done=Math.min(i+CHUNK,xmls.length);
+    const pct=Math.round(done/xmls.length*100);
+    Prog.step(0,'active',`Lendo ${done} de ${xmls.length} arquivo(s)... ${pct}%`);
+    Prog.bar(pct * 0.58);
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  Prog.step(0,'done'); Prog.step(1,'active','Concatenando produtos...');
+  await new Promise(r=>setTimeout(r,0));
+  allProds=allFiles.flatMap(f=>f.produtos);
+  Prog.step(1,'active',`${allProds.length} itens extraídos — montando colunas...`);
+  await new Promise(r=>setTimeout(r,0));
+  buildDynamicCols(discoveredFields);
+  Prog.step(1,'done'); Prog.step(2,'active',`Agrupando ${allProds.length} itens em SKUs únicos...`);
+  Prog.bar(62);
+  await new Promise(r=>setTimeout(r,0));
+  // buildCad é assíncrono — passa callback de progresso
+  await buildCad((pct,msg)=>{
+    Prog.bar(pct);
+    Prog.step(2,'active',msg);
+  });
+  Prog.step(2,'done'); Prog.step(3,'active','Calculando totais...');
+  Prog.bar(92);
+  await new Promise(r=>setTimeout(r,0));
+
+  const tv=allProds.reduce((s,p)=>s+(parseFloat(p.vProd)||0),0);
+  const errs=allFiles.filter(f=>f.status==='err');
+  const skus=Object.keys(cadMap).length;
+
+  Prog.stats([
+    {n:allFiles.length, label:'XMLs lidos',  color:'var(--accent2)'},
+    {n:skus,            label:'SKUs únicos',  color:'var(--green)'},
+    {n:allProds.length, label:'Itens totais', color:'var(--amber)'},
+    {n:errs.length,     label:'Erros',        color:errs.length?'var(--red)':'var(--muted)'},
+  ]);
+
+  document.getElementById('st-xml').textContent=allFiles.length;
+  document.getElementById('st-skus').textContent=skus;
+  document.getElementById('st-erros').textContent=errs.length;
+  document.getElementById('st-valor').textContent=tv.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:2});
+  document.getElementById('badge-xml').textContent=allFiles.length+'/'+skus;
+  document.getElementById('badge-files').textContent=allFiles.length;
+  document.getElementById('badge-cad').textContent=skus;
+
+  if(errs.length){
+    document.getElementById('sb-erros').style.display='block';
+    document.getElementById('erros-list').innerHTML=errs.map(f=>`<div class="err-row" title="${f.error}">${f.name}</div>`).join('');
+  }
+
+  Prog.step(3,'done'); Prog.step(4,'active','Atualizando cadastro...');
+  Prog.bar(93);
+  await new Promise(r=>setTimeout(r,0));
+  filtrarCad();
+  Prog.step(4,'active','Atualizando lista de arquivos...');
+  Prog.bar(95);
+  await new Promise(r=>setTimeout(r,0));
+  renderFileList();
+  Prog.step(4,'active','Consolidando dados...');
+  Prog.bar(97);
+  await new Promise(r=>setTimeout(r,0));
+  buildConsolidado();
+  renderDashboard();
+
+  Prog.step(4,'done');
+  Prog.bar(100);
+  await new Promise(r=>setTimeout(r,300));
+  Prog.hide();
+
+  const chip=document.getElementById('chip-status');
+  chip.textContent=`${allFiles.length} XML · ${skus} SKUs`;
+  chip.className='chip active';
+  setImpStatus('xml-status','ok',`✓ ${allFiles.length} arquivo(s) · ${skus} SKUs · ${allProds.length} itens${errs.length?' · '+errs.length+' erro(s)':''}`);
+  toast(`${skus} SKUs · ${allProds.length} itens de ${allFiles.length} arquivos`);
+}
+
+// Conjunto global de todos os campos descobertos (<prod> + <imposto> via <det>)
+const discoveredFields=new Set();
+const fieldLabels={};  // chave interna → label legível com pontos
+
+function parseXML(file){
+  return new Promise(resolve=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const en={name:file.name,path:file.webkitRelativePath||file.name,status:'ok',error:'',dhEmi:'',produtos:[]};
+      try{
+        const doc=new DOMParser().parseFromString(e.target.result,'application/xml');
+        if(doc.querySelector('parsererror'))throw new Error('XML inválido');
+        const g=(tag)=>doc.getElementsByTagNameNS(NS,tag)[0]||doc.getElementsByTagName(tag)[0];
+        en.dhEmi=g('dhEmi')?g('dhEmi').textContent:'';
+        // Emitente da NF
+        const emitEl=doc.getElementsByTagNameNS(NS,'emit')[0]||doc.getElementsByTagName('emit')[0];
+        if(emitEl){
+          const eget=t=>{ const el=emitEl.getElementsByTagNameNS(NS,t)[0]||emitEl.getElementsByTagName(t)[0]; return el?el.textContent:''; };
+          en.emitente={nome:eget('xNome'),cnpj:eget('CNPJ'),cpf:eget('CPF'),fantasia:eget('xFant')};
+        }
+        // Pegar <det> — contém <prod> E <imposto> como irmãos
+        let dets=[...doc.getElementsByTagNameNS(NS,'det')];
+        if(!dets.length)dets=[...doc.getElementsByTagName('det')];
+        // Fallback: se não houver <det>, usar <prod> direto (XMLs sem wrapper)
+        let prods=[...doc.getElementsByTagNameNS(NS,'prod')];
+        if(!prods.length)prods=[...doc.getElementsByTagName('prod')];
+
+        // Função recursiva para extrair folhas de uma árvore com prefixo
+        function extractLeaves(el, prefix, target){
+          for(const child of el.children){
+            const localTag=child.localName||child.tagName.split(':').pop();
+            const fullLabel=prefix?prefix+'.'+localTag:localTag;
+            // Chave interna usa underscore (seguro para querySelector, onclick, dataset)
+            const fullKey=fullLabel.replace(/\./g,'_');
+            if(child.children.length===0){
+              // Guarda label legível separado para exibição
+              if(!fieldLabels[fullKey]) fieldLabels[fullKey]=fullLabel;
+              discoveredFields.add(fullKey);
+              target[fullKey]=(target[fullKey]?target[fullKey]+' | ':'')+(child.textContent||'');
+            } else {
+              extractLeaves(child, fullLabel, target);
+            }
+          }
+        }
+
+        if(dets.length){
+          en.produtos=dets.map(det=>{
+            const o={_file:file.name,_path:file.webkitRelativePath||file.name,_dhEmi:en.dhEmi};
+            for(const child of det.children){
+              const tag=child.localName||child.tagName.split(':').pop();
+              if(tag==='prod'){
+                // Campos de <prod> sem prefixo — ex: cProd, xProd, NCM ...
+                extractLeaves(child,'',o);
+              } else if(tag==='imposto'){
+                // Pula o <ICMS>/<PIS>/<COFINS>/<IPI> wrapper — vai direto para o grupo modal
+                // <ICMS><ICMS60><CST> → "ICMS60.CST", <PIS><PISNT><CST> → "PISNT.CST"
+                for(const trib of child.children){
+                  extractLeaves(trib,'',o);
+                }
+              } else {
+                // Outros irmãos de <prod> (raro, ex: <obsItem>)
+                extractLeaves(child,tag,o);
+              }
+            }
+            return o;
+          });
+        } else {
+          // Fallback sem <det>
+          en.produtos=prods.map(prod=>{
+            const o={_file:file.name,_path:file.webkitRelativePath||file.name,_dhEmi:en.dhEmi};
+            extractLeaves(prod,'',o);
+            return o;
+          });
+        }
+      }catch(err){en.status='err';en.error=err.message;}
+      allFiles.push(en);resolve();
+    };
+    r.readAsText(file,'UTF-8');
+  });
+}
+
+// ═══════════════════
+//  BUILD CADASTRO
+// ═══════════════════
+async function buildCad(onProgress){
+  cadMap={};
+  // ETAPA 1: agrupar por cProd em chunks (não copiar todos os campos dinâmicos)
+  const CHUNK=500;
+  for(let i=0;i<allProds.length;i+=CHUNK){
+    const batch=allProds.slice(i,i+CHUNK);
+    batch.forEach(p=>{
+      const cod=p.cProd||'(sem código)';
+      if(!cadMap[cod])cadMap[cod]={cProd:cod,_v:[]};
+      // Guardar referência ao produto original (não cópia de campos)
+      // Só extrair o mínimo necessário para ordenação e cálculo
+      cadMap[cod]._v.push({
+        _ref:p,                      // referência ao objeto original
+        dhEmi:p._dhEmi||'',
+        arquivo:p._file||'',
+        qCom:parseFloat(p.qCom)||0,
+        vUnCom:parseFloat(p.vUnCom)||0,
+        vProd:parseFloat(p.vProd)||0,
+      });
+    });
+    // Ceder ao browser a cada chunk
+    if(i%2000===0&&i>0){
+      const pct=Math.round(i/allProds.length*40)+60; // 60-100% range
+      if(onProgress) onProgress(pct,`Agrupando SKUs... ${i}/${allProds.length}`);
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+
+  // ETAPA 2: consolidar cada SKU (ordenar + extrair campos do mais recente)
+  const skuList=Object.values(cadMap);
+  for(let i=0;i<skuList.length;i+=200){
+    const batch=skuList.slice(i,i+200);
+    batch.forEach(s=>{
+      s._v.sort((a,b)=>{
+        if(!a.dhEmi&&!b.dhEmi)return 0;
+        if(!a.dhEmi)return 1;if(!b.dhEmi)return-1;
+        return b.dhEmi.localeCompare(a.dhEmi);
+      });
+      const r=s._v[0];
+      const src=r._ref; // produto original — leitura direta, sem cópia em loop
+      // Campos fixos importantes
+      s.xProd    = src.xProd   ||src['xProd']  ||'';
+      s.cEAN     = src.cEAN    ||src['cEAN']   ||'';
+      s.NCM      = src.NCM     ||src['NCM']    ||'';
+      s.CEST     = src.CEST    ||src['CEST']   ||'';
+      s.CFOP     = src.CFOP    ||src['CFOP']   ||'';
+      s.uCom     = src.uCom    ||src['uCom']   ||'';
+      s.indTot   = src.indTot  ||src['indTot'] ||'';
+      s.dhEmi    = r.dhEmi;
+      s.arquivo  = r.arquivo;
+      s.vUnCom   = r.vUnCom;
+      s.qtdV     = s._v.length;
+      s.totQtd   = s._v.reduce((a,v)=>a+v.qCom,0);
+      s.totVal   = s._v.reduce((a,v)=>a+v.vProd,0);
+      const prices=s._v.map(v=>v.vUnCom).filter(v=>v>0);
+      s.pMin     = prices.length?Math.min(...prices):0;
+      s.pMax     = prices.length?Math.max(...prices):0;
+      // Campos de imposto (ICMS/PIS/COFINS) do item mais recente
+      s['ICMS60_orig'] = src['ICMS60_orig']||src['ICMS00_orig']||src['ICMS10_orig']||'';
+      s['ICMS60_CST']  = src['ICMS60_CST'] ||src['ICMS00_CST'] ||src['ICMS10_CST'] ||
+                         src['ICMSSN500_CSOSN']||src['ICMSSN102_CSOSN']||'';
+      s['PISNT_CST']   = src['PISNT_CST']  ||src['PISAliq_CST']||'';
+      s['COFINSNT_CST']= src['COFINSNT_CST']||src['COFINSAliq_CST']||'';
+      // Guardar referência ao produto mais recente para expansão na UI
+      s._refRecente=src;
+    });
+    await new Promise(r=>setTimeout(r,0));
+  }
+}
+
+// ═══════════════════
+//  CADASTRO RENDER
+// ═══════════════════
+function filtrarCad(){
+  const fd=document.getElementById('fc-desc').value.toLowerCase();
+  const fc=document.getElementById('fc-cod').value.toLowerCase();
+  const fe=document.getElementById('fc-ean').value.toLowerCase();
+  const fn=document.getElementById('fc-ncm').value.toLowerCase();
+  filtCad=Object.values(cadMap).filter(s=>{
+    const desc=(s.xProd||'').toLowerCase();
+    const ean =(s.cEAN ||'').toLowerCase();
+    const ncm =(s.NCM  ||'').toLowerCase();
+    const cod =(s.cProd||'').toLowerCase();
+    return(!fd||desc.includes(fd))&&
+           (!fc||cod.includes(fc)) &&
+           (!fe||ean.includes(fe)) &&
+           (!fn||ncm.includes(fn));
+  });
+  filtCad.sort((a,b)=>{
+    const va=a[csK]??'',vb=b[csK]??'';
+    const na=parseFloat(va),nb=parseFloat(vb);
+    if(!isNaN(na)&&!isNaN(nb))return(na-nb)*csD;
+    return String(va).localeCompare(String(vb))*csD;
+  });
+  cpg=1;openRow=null;renderCad();
+}
+
+// Colunas do cadastro — dinâmicas, reconstruídas após carregar XMLs
+let CAD_COLS=[];
+let cadVisCols=new Set();
+
+// Colunas fixas de estatística que sempre existem no cadastro
+const CAD_STAT_COLS=[
+  {k:'vUnCom',lb:'Preço atual',s:true,num:true,cls:'td-amber'},
+  {k:'pMin',   lb:'Preço mín', s:true,num:true},
+  {k:'pMax',   lb:'Preço máx', s:true,num:true},
+  {k:'qtdV',   lb:'Vendas',    s:true,num:true},
+  {k:'totQtd', lb:'Qtde total',s:true,num:true},
+  {k:'totVal', lb:'Vl. total', s:true,num:true,cls:'td-ok'},
+  {k:'dhEmi',  lb:'Última venda',s:true,date:true},
+];
+
+function renderCad(){
+  const wrap=document.getElementById('cad-wrap');
+  document.getElementById('ci-total').textContent=filtCad.length;
+  if(!filtCad.length){
+    wrap.innerHTML=`<div class="empty"><div class="empty-ico">${Object.keys(cadMap).length?'🔍':'🏷️'}</div><div class="empty-t">${Object.keys(cadMap).length?'Nenhum resultado':'Nenhum cadastro'}</div><div class="empty-s">${Object.keys(cadMap).length?'Ajuste os filtros':'Selecione uma pasta com XMLs'}</div></div>`;
+    document.getElementById('cad-pager').style.display='none';return;
+  }
+  const tot=Math.ceil(filtCad.length/PER);
+  if(cpg>tot)cpg=tot;
+  const slice=filtCad.slice((cpg-1)*PER,cpg*PER);
+  const fmtD=d=>{if(!d)return'—';try{return new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});}catch{return d.slice(0,10);}};
+  const cur=n=>(isNaN(n)||n===Infinity||n===0)?'—':n.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const visCadCols=CAD_COLS.filter(c=>cadVisCols.has(c.k));
+  const thead=`<tr><th style="width:24px;padding:7px 8px"></th>${visCadCols.map(c=>{
+    const cl=c.s?(csK===c.k?(csD===1?'asc':'desc'):''):'';
+    return`<th class="${cl}" onclick="cadSort('${c.k}')">${c.lb}</th>`;
+  }).join('')}</tr>`;
+  let tbody='';
+  slice.forEach((s,i)=>{
+    const rid=`r${cpg}_${i}`;
+    const isO=openRow===rid;
+    const tds=visCadCols.map(c=>{
+      const v=s[c.k];
+      if(c.date) return`<td class="td-date">${fmtD(v)}</td>`;
+      if(c.desc) return`<td class="td-desc" title="${v||''}" style="max-width:220px">${v||'—'}</td>`;
+      if(c.num)  return`<td class="td-num ${c.cls||''}">${cur(v)}</td>`;
+      return`<td title="${v||''}">${v||'—'}</td>`;
+    }).join('');
+    tbody+=`
+    <tr class="cad-row${isO?' is-open':''}" onclick="toggleRow('${rid}')">
+      <td style="padding:7px 8px;width:24px"><span class="expand-arrow">▶</span></td>${tds}
+    </tr>
+    <tr class="detail-row${isO?' is-open':''}"><td class="detail-cell" colspan="${visCadCols.length+1}">${isO?buildDetail(s):''}</td></tr>`;
+  });
+  wrap.innerHTML=`<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+  // pager
+  document.getElementById('cad-pager').style.display='flex';
+  document.getElementById('cpg-cur').textContent=cpg;
+  document.getElementById('cpg-tot').textContent=tot;
+  document.getElementById('cpg-prev').disabled=cpg<=1;
+  document.getElementById('cpg-next').disabled=cpg>=tot;
+  document.getElementById('cpg-btns').innerHTML=visiblePages(cpg,tot).map(p=>
+    p==='…'?`<span style="color:var(--muted);font-family:var(--mono);font-size:11px;padding:0 3px">…</span>`
+           :`<button class="pg-btn${p===cpg?' cur':''}" onclick="cadGoTo(${p})">${p}</button>`
+  ).join('');
+}
+
+function buildDetail(s){
+  const cur=n=>(isNaN(n)||n===Infinity||n===0)?'—':n.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const fmtFull=d=>{if(!d)return'—';try{return new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return d.slice(0,16).replace('T',' ');}};
+  const hist=s._v.slice(0,12);
+  const rows=hist.map((v,i)=>`<tr class="${i===0?'newest':''}">
+    <td>${fmtFull(v.dhEmi)}</td>
+    <td class="hn">${cur(v.vUnCom)}</td>
+    <td class="hn">${v.qCom.toLocaleString('pt-BR',{minimumFractionDigits:3})}</td>
+    <td class="hn">${cur(v.vProd)}</td>
+    <td style="color:var(--muted2);font-size:9px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.arquivo}">${v.arquivo}</td>
+  </tr>`).join('');
+  // Painel de todos os campos — usa discoveredFields para mostrar tudo dinamicamente
+  const allFieldsHtml=[...discoveredFields].sort().map(f=>{
+    const v=s[f];if(!v)return'';
+    return`<div class="dm-item"><div class="dm-lbl">${f}</div><div class="dm-val" style="word-break:break-all;font-size:11px">${v}</div></div>`;
+  }).filter(Boolean).join('');
+  const hasVar=s.pMax>s.pMin;
+  const barW=hasVar?Math.round(((s.vUnCom-s.pMin)/(s.pMax-s.pMin))*100):100;
+  return`<div class="detail-inner">
+    <div class="d-hist">
+      <div class="d-hist-title">Histórico de preços — ${hist.length} ocorrências mais recentes${s._v.length>12?` (de ${s._v.length} total)`:''} <span style="color:var(--green);font-size:9px">● linha verde = mais recente</span></div>
+      <table class="h-table">
+        <thead><tr><th>Data / hora</th><th>Vl. unit.</th><th>Qtde</th><th>Vl. prod</th><th>Arquivo</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${hasVar?`<div class="bar-wrap">
+        <div class="bar-lbl">Variação de preço unitário</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${barW}%"></div></div>
+        <div class="bar-range">
+          <span>Mín R$ ${cur(s.pMin)}</span>
+          <span class="cur">Atual R$ ${cur(s.vUnCom)}</span>
+          <span>Máx R$ ${cur(s.pMax)}</span>
+        </div>
+      </div>`:'<div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted)">Preço único em todas as vendas</div>'}
+    </div>
+    <div class="d-meta" style="overflow-y:auto;max-height:320px">
+      <div class="dm-item"><div class="dm-lbl">Preço atual</div><div class="dm-val amber">R$ ${cur(s.vUnCom)}</div></div>
+      <div class="dm-item"><div class="dm-lbl">Total de vendas</div><div class="dm-val">${s.qtdV} venda${s.qtdV!==1?'s':''}</div></div>
+      <div class="dm-item"><div class="dm-lbl">Qtde total vendida</div><div class="dm-val">${s.totQtd.toLocaleString('pt-BR',{minimumFractionDigits:3})} ${s.uCom||''}</div></div>
+      <div class="dm-item"><div class="dm-lbl">Valor total</div><div class="dm-val green">R$ ${cur(s.totVal)}</div></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)">
+        <div class="d-hist-title" style="margin-bottom:8px">Todos os campos (venda mais recente)</div>
+        ${allFieldsHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleRow(rid){
+  openRow=openRow===rid?null:rid;
+  renderCad();
+  if(openRow){setTimeout(()=>{const el=document.querySelector(`.detail-row.is-open`);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},60);}
+}
+function cadSort(k){if(csK===k)csD*=-1;else{csK=k;csD=1;}filtrarCad();}
+function toggleCadCol(k,v){v?cadVisCols.add(k):cadVisCols.delete(k);openRow=null;renderCad();}
+function toggleCadColDrop(){document.getElementById('cad-col-drop').classList.toggle('open');}
+function cadColAll(on){
+  CAD_COLS.forEach(c=>on?cadVisCols.add(c.k):cadVisCols.delete(c.k));
+  document.querySelectorAll('[data-cad]').forEach(cb=>cb.checked=on);
+  openRow=null;renderCad();
+}
+function cadPage(d){cadGoTo(cpg+d);}
+function cadGoTo(p){cpg=p;openRow=null;renderCad();document.getElementById('cad-wrap').scrollTop=0;}
+
+// ═══════════════════
+//  FILE LIST
+// ═══════════════════
+function renderFileList(){
+  const q=document.getElementById('f-file-search').value.toLowerCase();
+  const shown=allFiles.filter(f=>!q||f.name.toLowerCase().includes(q)||f.path.toLowerCase().includes(q));
+  shown.sort((a,b)=>a.path.localeCompare(b.path));
+  document.getElementById('fi-count').textContent=shown.length;
+  if(!shown.length){document.getElementById('file-list').innerHTML=`<div class="empty"><div class="empty-ico">${allFiles.length?'🔍':'📂'}</div><div class="empty-t">${allFiles.length?'Nenhum resultado':'Nenhuma pasta selecionada'}</div></div>`;return;}
+  const byF={};
+  shown.forEach(f=>{const p=f.path.split(/[/\\]/);const fo=p.length>1?p.slice(0,-1).join('/'):'(raiz)';if(!byF[fo])byF[fo]=[];byF[fo].push(f);});
+  let html='';
+  Object.keys(byF).sort().forEach(fo=>{
+    html+=`<div style="padding:6px 16px 3px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--s2);border-bottom:1px solid var(--b1);position:sticky;top:0;z-index:1">📁 ${fo}</div>`;
+    byF[fo].forEach(f=>{
+      const ok=f.status!=='err';
+      html+=`<div class="file-row"><div class="file-icon">${ok?'✅':'❌'}</div><div class="file-info"><div class="file-name" title="${f.path}">${f.name}</div><div class="file-path">${f.path}</div></div><div class="file-meta"><div class="file-prods">${ok?f.produtos.length+' prod.':''}</div><div class="file-status ${ok?'td-ok':'td-err'}">${ok?'OK':'ERRO'}</div></div></div>`;
+    });
+  });
+  document.getElementById('file-list').innerHTML=html;
+}
+
+// ═══════════════════
+//  PRODUTO TABLE
+// ═══════════════════
+function filtrar(){
+  const fd=document.getElementById('f-desc').value.toLowerCase();
+  const fn=document.getElementById('f-ncm').value.toLowerCase();
+  const fc=document.getElementById('f-cfop').value.toLowerCase();
+  const fa=document.getElementById('f-arq').value.toLowerCase();
+  filtProds=allProds.filter(p=>
+    (!fd||(p.xProd||'').toLowerCase().includes(fd))&&
+    (!fn||(p.NCM  ||'').toLowerCase().includes(fn))&&
+    (!fc||(p.CFOP ||'').toLowerCase().includes(fc))&&
+    (!fa||(p._file||'').toLowerCase().includes(fa))
+  );
+  if(sK){filtProds.sort((a,b)=>{const va=a[sK]||'',vb=b[sK]||'';const na=parseFloat(va),nb=parseFloat(vb);if(!isNaN(na)&&!isNaN(nb))return(na-nb)*sD;return va.localeCompare(vb)*sD;});}
+  pg=1;renderTable();
+}
+
+function renderTable(){
+  const wrap=document.getElementById('tbl-wrap');
+  if(!wrap) return;  // aba Produtos removida — função não usada
+  if(!filtProds.length){
+    wrap.innerHTML=`<div class="empty"><div class="empty-ico">${allProds.length?'🔍':'📦'}</div><div class="empty-t">${allProds.length?'Nenhum resultado':'Nenhum produto carregado'}</div></div>`;
+    const pEl=document.getElementById('pager'); if(pEl)pEl.style.display='none';
+    document.getElementById('pi-show').textContent=0;document.getElementById('pi-total').textContent=0;return;
+  }
+  const tot=Math.ceil(filtProds.length/PER);if(pg>tot)pg=tot;
+  const slice=filtProds.slice((pg-1)*PER,pg*PER);
+  const cols=COLS.filter(c=>visCols.has(c.k));
+  const thead=cols.map(c=>`<th class="${sK===c.k?(sD===1?'asc':'desc'):''}" onclick="sortBy('${c.k}')">${c.lb}</th>`).join('');
+  const tbody=slice.map(p=>cols.map(c=>{
+    const v=p[c.k]||'';
+    if(c.t==='num')  return`<td class="td-num">${v?parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2}):''}</td>`;
+    if(c.t==='src')  return`<td class="td-src" title="${p._path||v}">${v}</td>`;
+    if(c.t==='desc') return`<td class="td-desc" title="${v}">${v}</td>`;
+    return`<td title="${v}">${v}</td>`;
+  }).join('')).map(r=>`<tr>${r}</tr>`).join('');
+  wrap.innerHTML=`<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+  const pagerEl=document.getElementById('pager');
+  if(pagerEl)pagerEl.style.display='flex';
+  const piShow=document.getElementById('pi-show');
+  const piTotal=document.getElementById('pi-total');
+  if(piShow)piShow.textContent=slice.length;
+  if(piTotal)piTotal.textContent=filtProds.length;
+  ['pg-cur','pg-tot','pg-prev','pg-next','pg-btns'].forEach(id=>{if(!document.getElementById(id))return;});
+  const pgCur=document.getElementById('pg-cur');const pgTot=document.getElementById('pg-tot');
+  const pgPrev=document.getElementById('pg-prev');const pgNext=document.getElementById('pg-next');
+  const pgBtns=document.getElementById('pg-btns');
+  if(pgCur)pgCur.textContent=pg;if(pgTot)pgTot.textContent=tot;
+  if(pgPrev)pgPrev.disabled=pg<=1;if(pgNext)pgNext.disabled=pg>=tot;
+  if(pgBtns)pgBtns.innerHTML=visiblePages(pg,tot).map(p=>
+    p==='…'?`<span style="color:var(--muted);font-family:var(--mono);font-size:11px;padding:0 3px">…</span>`
+           :`<button class="pg-btn${p===pg?' cur':''}" onclick="goTo(${p})">${p}</button>`
+  ).join('');
+}
+
+function visiblePages(c,t){if(t<=7)return Array.from({length:t},(_,i)=>i+1);if(c<=4)return[1,2,3,4,5,'…',t];if(c>=t-3)return[1,'…',t-4,t-3,t-2,t-1,t];return[1,'…',c-1,c,c+1,'…',t];}
+function goPage(d){goTo(pg+d);}
+function goTo(p){pg=p;renderTable();const tw=document.getElementById('tbl-wrap');if(tw)tw.scrollTop=0;}
+function sortBy(k){if(sK===k)sD*=-1;else{sK=k;sD=1;}filtrar();}
+function toggleCol(k,v){v?visCols.add(k):visCols.delete(k);renderTable();}
+function toggleColDrop(){const el=document.getElementById('col-drop');if(el)el.classList.toggle('open');}
+
+// ═══════════════════
+//  EXPORTS
+// ═══════════════════
+function exportCadCSV(){
+  if(!filtCad.length){toast('Nenhum dado para exportar','err');return;}
+  const cur=n=>(isNaN(n)||n===Infinity)?'':n.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const fd=d=>{if(!d)return'';try{return new Date(d).toLocaleDateString('pt-BR');}catch{return d.slice(0,10);}};
+  const esc=v=>'"'+(String(v||'').replace(/"/g,'""'))+'"';
+  // Colunas dinâmicas: todos os campos descobertos + estatísticas
+  const dynFields=[...discoveredFields].sort();
+  const statCols=['_qtdVendas','_qtdTotal','_valorTotal','_precoMin','_precoMax','_ultimaVenda','_arquivo'];
+  const hdr=[...dynFields,...statCols].map(esc).join(';');
+  const rows=filtCad.map(s=>{
+    const dyn=dynFields.map(f=>esc(s[f]||''));
+    const stat=[esc(s.qtdV),esc(cur(s.totQtd)),esc(cur(s.totVal)),esc(cur(s.pMin)),esc(cur(s.pMax)),esc(fd(s.dhEmi)),esc(s.arquivo)];
+    return[...dyn,...stat].join(';');
+  });
+  dlCSV([hdr,...rows].join('\r\n'),`nfce_cadastro_${ts()}.csv`);toast('CSV do cadastro exportado');
+}
+function exportProdCSV(){
+  // Exporta via Cadastro (SKUs únicos) já que a aba Produtos foi removida
+  exportCadCSV(); return;
+  if(!filtProds.length){toast('Nenhum produto para exportar','err');return;}
+  const esc=v=>'"'+(String(v||'').replace(/"/g,'""'))+'"';
+  // Exporta TODOS os campos descobertos + arquivo/data de emissão
+  const dynFields=[...discoveredFields].sort();
+  const hdr=['_arquivo','_dhEmi',...dynFields].map(esc).join(';');
+  const rows=filtProds.map(p=>[esc(p._file),esc(p._dhEmi),...dynFields.map(f=>esc(p[f]||''))].join(';'));
+  dlCSV([hdr,...rows].join('\r\n'),`nfce_produtos_${ts()}.csv`);
+  toast('CSV exportado — todos os campos');
+}
+function exportFileListCSV(){
+  if(!allFiles.length){toast('Nenhum arquivo carregado','err');return;}
+  dlCSV(['Arquivo;Caminho;Status;Produtos;Erro',...allFiles.map(f=>`"${f.name}";"${f.path}";"${f.status}";"${f.produtos.length}";"${f.error}"`)].join('\r\n'),`nfce_arquivos_${ts()}.csv`);
+  toast('CSV exportado');
+}
+function dlCSV(c,fn){const b=new Blob(['\uFEFF'+c],{type:'text/csv;charset=utf-8;'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=fn;a.click();URL.revokeObjectURL(u);}
+function ts(){return new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');}
+
+// ═══════════════════
+//  DROP / TABS / TOAST
+// ═══════════════════
+function handleDrop(e){
+  e.preventDefault();document.getElementById('drop-zone').classList.remove('drag');
+  const items=[...e.dataTransfer.items],files=[...e.dataTransfer.files];
+  const hasDir=items.some(i=>{const en=i.webkitGetAsEntry&&i.webkitGetAsEntry();return en&&en.isDirectory;});
+  if(hasDir){
+    const all=[];
+    function rd(de){return new Promise(res=>{const r=de.createReader();function rb(){r.readEntries(es=>{if(!es.length){res();return;}Promise.all(es.map(en=>{if(en.isDirectory)return rd(en);if(en.name.toLowerCase().endsWith('.xml'))return new Promise(r2=>en.file(f=>{all.push(f);r2();}));return Promise.resolve();})).then(rb);});}rb();});}
+    Promise.all(items.map(it=>{const en=it.webkitGetAsEntry&&it.webkitGetAsEntry();return en&&en.isDirectory?rd(en):Promise.resolve();})).then(()=>{if(all.length)processFiles(all);else toast('Nenhum XML encontrado','err');});
+  }else{const xs=files.filter(f=>f.name.toLowerCase().endsWith('.xml'));if(xs.length)processFiles(xs);else toast('Arraste uma pasta ou arquivos XML','err');}
+}
+
+function switchTab(id){
+  ['dash','imp','xml','sped','cons'].forEach(t=>{
+    document.getElementById(`tab-${t}`).classList.toggle('active',t===id);
+    document.getElementById(`panel-${t}`).classList.toggle('active',t===id);
+  });
+  // Sidebar context
+  const sbStats=document.getElementById('sb-stats');
+  if(sbStats) sbStats.style.display=id==='sped'?'none':'block';
+  document.getElementById('sb-fc').style.display='none';
+  document.getElementById('sb-fp').style.display='none';
+  // XML sub-context
+  if(id==='xml'){
+    const cur=document.querySelector('.sped-tab.active[id^="xtab-"]');
+    if(cur){const sub=cur.id.replace('xtab-','');updateXmlSidebarFilters(sub);}
+  }
+}
+
+function switchXmlTab(id){
+  ['files','cad'].forEach(t=>{
+    document.getElementById(`xtab-${t}`).classList.toggle('active',t===id);
+    document.getElementById(`xpanel-${t}`).classList.toggle('active',t===id);
+  });
+  updateXmlSidebarFilters(id);
+}
+
+function updateXmlSidebarFilters(id){
+  document.getElementById('sb-fc').style.display = id==='cad' ? 'flex' : 'none';
+  // sb-fp não é mais usado (aba Produtos removida)
+  const sbFp=document.getElementById('sb-fp');
+  if(sbFp)sbFp.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+//  SPED MODULE
+// ══════════════════════════════════════════════
+let spedData = {
+  arquivos: [],
+  empresa: {},
+  parceiros: [],
+  produtos: [],
+  tanques: [],
+  bicos: [],
+  entradas: [],
+  tributos: [],
+  custoProduto: {},  // cod_item → [C170 items]
+  tribAgr:      {},  // mes|cst|cfop → agregado C190 (evita 100k+ linhas)
+  saidaAgr:     {},  // cfop → agregado saídas C190
+  _currentNota: null,
+};
+
+// Decode bytes to string handling latin1
+function decodeSpedText(buffer){
+  try { return new TextDecoder('windows-1252').decode(buffer); }
+  catch(e){ return new TextDecoder('latin1').decode(buffer); }
+}
+
+async function processSpedFiles(fileList){
+  const files=[...fileList].filter(f=>f.name.toUpperCase().endsWith('.TXT'));
+  if(!files.length){toast('Nenhum arquivo .TXT selecionado','err');return;}
+
+  setImpStatus('sped-status','loading',`⏳ Iniciando leitura de ${files.length} arquivo(s) SPED...`);
+
+  Prog.show(`Importando SPED — ${files.length} arquivo(s)`,[
+    {label:'Lendo e decodificando arquivos'},
+    {label:'Parseando registros (0150, 0200, C100, C170, C190...)'},
+    {label:'Consolidando bicos e tanques'},
+    {label:'Calculando custo e tributação'},
+    {label:'Atualizando telas'},
+  ]);
+  Prog.step(0,'active',`Aguardando leitura...`);
+  await new Promise(r=>setTimeout(r,30));
+
+  spedData={arquivos:[],empresa:{},parceiros:[],produtos:[],tanques:[],bicos:[],entradas:[],custoProduto:{},tribAgr:{},saidaAgr:{},_currentNota:null};
+  const chipsEl=document.getElementById('sped-chips');
+  chipsEl.innerHTML='';
+
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    const pct=Math.round((i/files.length)*60);
+    Prog.file(file.name);
+    Prog.step(0,'active',`Lendo ${i+1} de ${files.length}: ${file.name}`);
+    Prog.bar(pct);
+    await new Promise(resolve=>{
+      const reader=new FileReader();
+      reader.onload=e=>{
+        Prog.step(1,'active',`Parseando ${file.name}...`);
+        const text=decodeSpedText(e.target.result);
+        parseSpedFile(file.name, text);
+        resolve();
+      };
+      reader.readAsArrayBuffer(file);
+    });
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  Prog.step(0,'done'); Prog.step(1,'done');
+  Prog.step(2,'active','Consolidando estrutura de bicos e deduplicando...');
+  Prog.bar(65);
+  await new Promise(r=>setTimeout(r,0));
+  buildBicoStructure();
+
+  Prog.step(2,'done');
+  Prog.step(3,'active','Calculando custo de entrada e tributação...');
+  Prog.bar(75);
+  await new Promise(r=>setTimeout(r,0));
+
+  const total=spedData.parceiros.length+spedData.produtos.length+spedData.entradas.length;
+  document.getElementById('badge-sped').textContent=total;
+  const chipHtml=spedData.arquivos.map(n=>`<span class="sped-chip loaded" title="${n}">${n.split('_')[0]||n.slice(0,12)}</span>`).join('');
+  chipsEl.innerHTML=chipHtml;
+  const sbSpedStatus=document.getElementById('sb-sped-status');
+  if(sbSpedStatus){sbSpedStatus.style.display='block';sbSpedStatus.querySelector('#sped-chips').innerHTML=chipHtml;}
+
+  Prog.stats([
+    {n:spedData.parceiros.length,                    label:'Parceiros',    color:'var(--accent2)'},
+    {n:spedData.produtos.length,                     label:'Produtos',     color:'var(--green)'},
+    {n:spedData.entradas.length,                     label:'NF entrada',   color:'var(--amber)'},
+    {n:Object.keys(spedData.custoProduto).length,    label:'SKUs c/ custo',color:'var(--muted2)'},
+  ]);
+
+  Prog.step(3,'done');
+  Prog.step(4,'active','Atualizando telas SPED...');
+  Prog.bar(85);
+  await new Promise(r=>setTimeout(r,0));
+
+  renderSpedEmpresa();
+  renderParceiros();
+  renderSpedProdutos();
+  renderCombustivel();
+  renderEntradas();
+  renderItensC170();
+
+  Prog.step(4,'active','Atualizando Consolidar e Dashboard...');
+  Prog.bar(95);
+  await new Promise(r=>setTimeout(r,0));
+
+  buildConsolidado();
+  renderDashboard();
+
+  Prog.step(4,'done');
+  Prog.bar(100);
+  await new Promise(r=>setTimeout(r,300));
+  Prog.hide();
+
+  const tribN=Object.keys(spedData.tribAgr).length;
+  setImpStatus('sped-status','ok',`✓ ${spedData.arquivos.length} arquivo(s) · ${spedData.parceiros.length} parceiros · ${spedData.entradas.length} entradas · ${tribN} grupos C190`);
+  toast(`SPED: ${spedData.parceiros.length} parceiros · ${spedData.entradas.length} entradas · ${tribN} grupos C190`);
+}
+
+function handleSpedDrop(e){
+  e.preventDefault();
+  document.getElementById('sped-drop').classList.remove('drag');
+  const files=[...e.dataTransfer.files].filter(f=>f.name.toUpperCase().endsWith('.TXT'));
+  if(files.length)processSpedFiles(files);
+  else toast('Arraste arquivos .TXT do SPED','err');
+}
+
+function handleSpedFolderDrop(e){
+  e.preventDefault();
+  document.getElementById('sped-folder-drop').classList.remove('drag');
+  const items=[...e.dataTransfer.items];
+  const hasDir=items.some(i=>{const en=i.webkitGetAsEntry&&i.webkitGetAsEntry();return en&&en.isDirectory;});
+  if(hasDir){
+    const all=[];
+    function rd(de){return new Promise(res=>{const r=de.createReader();function rb(){r.readEntries(es=>{if(!es.length){res();return;}Promise.all(es.map(en=>{if(en.isDirectory)return rd(en);if(en.name.toUpperCase().endsWith('.TXT'))return new Promise(r2=>en.file(f=>{all.push(f);r2();}));return Promise.resolve();})).then(rb);});}rb();});}
+    Promise.all(items.map(it=>{const en=it.webkitGetAsEntry&&it.webkitGetAsEntry();return en&&en.isDirectory?rd(en):Promise.resolve();}))
+      .then(()=>{if(all.length)processSpedFiles(all);else toast('Nenhum .TXT encontrado','err');});
+  } else {
+    const txts=[...e.dataTransfer.files].filter(f=>f.name.toUpperCase().endsWith('.TXT'));
+    if(txts.length)processSpedFiles(txts); else toast('Arraste uma pasta ou arquivos .TXT','err');
+  }
+}
+
+// ── Parser principal ──
+function parseSpedFile(filename, text){
+  spedData.arquivos.push(filename);
+  // Detect month from filename or 0000 record
+  let mesRef='';
+  const lines=text.split(/\r?\n/);
+  // temp storage for bico parsing
+  let currentBomba=null;
+
+  for(const rawLine of lines){
+    const line=rawLine.trim();
+    if(!line||line[0]!=='|')continue;
+    const f=line.split('|');
+    // f[0]='' f[1]=REG f[2..]=campos
+    const reg=f[1];
+    if(!reg)continue;
+
+    switch(reg){
+      case '0000':
+        // |0000|cod_ver|tipo_escrit|dt_ini|dt_fin|nome|cnpj|cpf|uf|ie|cod_mun|suframa|ind_perfil|ind_ativ
+        if(!spedData.empresa.cnpj){
+          spedData.empresa={
+            nome:f[6]||'',cnpj:f[7]||'',uf:f[9]||'',ie:f[10]||'',
+            codMun:f[11]||'',dtIni:f[4]||'',dtFin:f[5]||'',
+            indAtiv:f[15]||'',arquivo:filename
+          };
+        }
+        mesRef=f[4]?f[4].slice(2,8):''; // MMAAAA
+        break;
+
+      case '0005':
+        spedData.empresa.fantasia=f[2]||'';
+        spedData.empresa.cep=f[3]||'';
+        spedData.empresa.logradouro=(f[4]||'')+(f[5]?', '+f[5]:'');
+        spedData.empresa.bairro=f[7]||'';
+        spedData.empresa.fone=f[9]||'';
+        spedData.empresa.email=f[10]||'';
+        break;
+
+      case '0150':
+        // |0150|cod_part|nome|cod_pais|cnpj|cpf|ie|cod_mun|suframa|end|num|compl|bairro
+        spedData.parceiros.push({
+          cod:f[2]||'',nome:f[3]||'',pais:f[4]||'',cnpj:f[5]||'',
+          cpf:f[6]||'',ie:f[7]||'',codMun:f[8]||'',
+          end:((f[10]||'')+(f[11]?', '+f[11]:'')).trim(),
+          bairro:f[13]||'',arquivo:filename,mes:mesRef
+        });
+        break;
+
+      case '0200':
+        // |0200|cod_item|descr|cod_barra|cod_ant|unid|tipo|cod_ncm|ex_ipi|cod_gen|cod_lst|aliq_icms|cest
+        spedData.produtos.push({
+          cod:f[2]||'',descr:f[3]||'',ean:f[4]||'',
+          unid:f[6]||'',tipo:f[7]||'',ncm:f[8]||'',
+          aliqIcms:f[12]||'',cest:f[13]||'',arquivo:filename
+        });
+        break;
+
+      case '1300':
+        // |1300|cod_item|dt_estq|estq_ini|ent_dia|est_tot|cons_dia|estq_fin|perd|gan|estq_fin2
+        // Tanque: movimentação diária por produto
+        spedData.tanques.push({
+          codItem:f[2]||'',dt:fmtSpedDate(f[3]),
+          estoqueIni:parseNum(f[4]),entDia:parseNum(f[5]),
+          estTot:parseNum(f[6]),consDia:parseNum(f[7]),
+          estFin:parseNum(f[8]),perda:parseNum(f[9]),
+          ganho:parseNum(f[10]),arquivo:filename,mes:mesRef
+        });
+        break;
+
+      case '1310':
+        // |1310|num_tanque|estq_ini|ent|est_tot|cons|estq_fin|perda|ganho|estq_fin2
+        // Vincula ao último 1300 inserido
+        if(spedData.tanques.length){
+          const last=spedData.tanques[spedData.tanques.length-1];
+          if(!last.tanques)last.tanques=[];
+          last.tanques.push({num:f[2]||''});
+        }
+        break;
+
+      case '1320':
+        // |1320|num_bico|dt_ini|dt_fin|estoque|teste|enc_ini|enc_fin|volume_afr|volume
+        if(spedData.tanques.length){
+          const last=spedData.tanques[spedData.tanques.length-1];
+          if(!last.bicos)last.bicos=[];
+          last.bicos.push({
+            num:f[2]||'',encIni:parseNum(f[7]),encFin:parseNum(f[8]),
+            volAfr:parseNum(f[9]),volume:parseNum(f[10])
+          });
+        }
+        break;
+
+      case '1350':
+        // |1350|num_serie|fabricante|modelo|med_ativo
+        currentBomba={serie:f[2]||'',fab:f[3]||'',modelo:f[4]||'',bicos:[]};
+        spedData.bicos.push(currentBomba);
+        break;
+
+      case '1360':
+        // |1360|num_seloIcms|dt_fabricacao
+        if(currentBomba)currentBomba.seloIcms=f[2]||'';
+        break;
+
+      case '1370':
+        // |1370|num_bico|ind_combustivel|num_tanque
+        if(currentBomba){
+          currentBomba.bicos.push({
+            numBico:f[2]||'',indComb:f[3]||'',numTanque:f[4]||''
+          });
+        }
+        break;
+
+      case 'C100':
+        // |C100|ind_oper|ind_emit|cod_part|cod_mod|cod_sit|ser|num|chv_nfe|dt_doc|dt_ent|vl_doc|...
+        {
+          const entrada={
+            mes:mesRef,
+            indOper:f[2]||'',indEmit:f[3]||'',codPart:f[4]||'',
+            mod:f[5]||'',codSit:f[6]||'',serie:f[7]||'',
+            num:f[8]||'',chave:f[9]||'',
+            dtEnt:fmtSpedDate(f[10]),dtSai:fmtSpedDate(f[11]),
+            vlTotal:parseNum(f[12]),
+            vlDesc:parseNum(f[14]),vlAbat:parseNum(f[15]),
+            vlMerc:parseNum(f[16]),
+            vlFrete:parseNum(f[18]),vlSeg:parseNum(f[19]),
+            vlOutros:parseNum(f[20]),vlIpi:parseNum(f[21]),
+            vlPis:parseNum(f[22]),vlCofins:parseNum(f[23]),
+            vlSt:parseNum(f[27]),
+            arquivo:filename,
+            _itens:[]  // será preenchido pelos C170 seguintes
+          };
+          if(f[2]==='0') spedData.entradas.push(entrada);
+          // Guarda referência para o C170 vincular (independente de entrada/saída)
+          spedData._currentNota=entrada;
+        }
+        break;
+
+      case 'C170':
+        // |C170|num_item|cod_item|descr|qtd|unid|vl_item|vl_desc|ind_mov|cst_icms|cfop|cod_cta
+        //      |vl_bc_icms|aliq_icms|vl_icms|vl_bc_st|aliq_st|vl_st|...|cst_pis|vl_bc_pis|aliq_pis|...|vl_pis
+        //      |cst_cofins|vl_bc_cofins|aliq_cofins|...|vl_cofins
+        {
+          const qtd=parseNum(f[5]);
+          const vlItem=parseNum(f[7]);
+          const vlDesc=parseNum(f[8]);
+          const vlLiq=vlItem-vlDesc;
+          const vlUnit=qtd>0?vlLiq/qtd:0;
+          const item={
+            codItem:f[3]||'',descr:f[4]||'',qtd,unid:f[6]||'',
+            vlItem,vlDesc,vlLiq,vlUnit:parseFloat(vlUnit.toFixed(6)),
+            cstIcms:f[10]||'',cfop:f[11]||'',
+            vlBcIcms:parseNum(f[13]),aliqIcms:parseNum(f[14]),vlIcms:parseNum(f[15]),
+            vlBcSt:parseNum(f[16]),aliqSt:parseNum(f[17]),vlSt:parseNum(f[18]),
+            cstIpi:f[20]||'',aliqIpi:parseNum(f[23]),vlIpi:parseNum(f[24]),
+            cstPis:f[25]||'',vlBcPis:parseNum(f[26]),aliqPis:parseNum(f[27]),vlPis:parseNum(f[30]),
+            cstCofins:f[31]||'',vlBcCofins:parseNum(f[32]),aliqCofins:parseNum(f[33]),vlCofins:parseNum(f[36]),
+            mes:mesRef,dtEnt:spedData._currentNota?spedData._currentNota.dtEnt:'',
+            fornecedor:spedData._currentNota?spedData._currentNota.codPart:'',
+            arquivo:filename
+          };
+          // Vincular à nota corrente
+          if(spedData._currentNota) spedData._currentNota._itens.push(item);
+          // Registrar no mapa de custo por produto
+          if(!spedData.custoProduto)spedData.custoProduto={};
+          const codNorm=item.codItem.replace(/^0+/,'');  // normaliza leading zeros
+          if(!spedData.custoProduto[codNorm]){
+            spedData.custoProduto[codNorm]=[];
+          }
+          spedData.custoProduto[codNorm].push(item);
+        }
+        break;
+
+      case 'C190':
+        // Agregar C190 por mes+cst+cfop — evita guardar 100k+ linhas individuais
+        {
+          const cfop190=f[3]||'';
+          const key190=mesRef+'|'+(f[2]||'')+'|'+cfop190;
+          if(!spedData.tribAgr[key190]){
+            spedData.tribAgr[key190]={
+              mes:mesRef,cst:f[2]||'',cfop:cfop190,unid:f[4]||'',
+              aliqIcms:parseNum(f[7]),aliqSt:parseNum(f[10]),
+              vlOpr:0,vlBcIcms:0,vlIcms:0,vlBcSt:0,vlSt:0,vlIpi:0,vlPis:0,vlCofins:0
+            };
+          }
+          const ag=spedData.tribAgr[key190];
+          ag.vlOpr+=parseNum(f[5]); ag.vlBcIcms+=parseNum(f[6]);
+          ag.vlIcms+=parseNum(f[8]); ag.vlBcSt+=parseNum(f[9]);
+          ag.vlSt+=parseNum(f[11]);  ag.vlIpi+=parseNum(f[14]);
+          ag.vlPis+=parseNum(f[15]); ag.vlCofins+=parseNum(f[16]);
+          // Saídas (5xxx/6xxx) para cruzamento com produtos
+          if(cfop190.startsWith('5')||cfop190.startsWith('6')){
+            if(!spedData.saidaAgr[cfop190]){
+              spedData.saidaAgr[cfop190]={cfop:cfop190,cst:f[2]||'',vlOpr:0,vlIcms:0,vlSt:0,vlPis:0,vlCofins:0};
+            }
+            const sa=spedData.saidaAgr[cfop190];
+            sa.vlOpr+=parseNum(f[5]); sa.vlIcms+=parseNum(f[8]);
+            sa.vlSt+=parseNum(f[11]); sa.vlPis+=parseNum(f[15]); sa.vlCofins+=parseNum(f[16]);
+          }
+        }
+        break;
+    }
+  }
+}
+
+function parseNum(s){return parseFloat((s||'0').replace(',','.'))||0;}
+function fmtSpedDate(s){
+  if(!s||s.length<8)return s||'';
+  return s.slice(0,2)+'/'+s.slice(2,4)+'/'+s.slice(4,8);
+}
+function cur(n){return(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2});}
+
+function buildBicoStructure(){
+  // Deduplicar parceiros por cod+cnpj+cpf
+  const seenP=new Set();
+  spedData.parceiros=spedData.parceiros.filter(p=>{
+    const k=p.cod+'|'+p.cnpj+'|'+p.cpf;
+    if(seenP.has(k))return false;
+    seenP.add(k);return true;
+  });
+
+  // Deduplicar bombas (1350) por número de série
+  // Cada arquivo mensal repete a mesma estrutura — manter apenas a primeira ocorrência
+  const seenB=new Map(); // serie → bomba
+  spedData.bicos.forEach(bomba=>{
+    if(!seenB.has(bomba.serie)){
+      seenB.set(bomba.serie, bomba);
+    } else {
+      // Mesclar bicos (caso algum arquivo tenha mais bicos que outro)
+      const existing=seenB.get(bomba.serie);
+      const existingNums=new Set((existing.bicos||[]).map(b=>b.numBico));
+      (bomba.bicos||[]).forEach(b=>{
+        if(!existingNums.has(b.numBico)){
+          existing.bicos.push(b);
+          existingNums.add(b.numBico);
+        }
+      });
+      // Selo ICMS pode aparecer só em alguns arquivos
+      if(!existing.seloIcms&&bomba.seloIcms) existing.seloIcms=bomba.seloIcms;
+    }
+  });
+  spedData.bicos=[...seenB.values()];
+}
+
+// ── Renders ──
+function renderSpedEmpresa(){
+  const e=spedData.empresa;
+  if(!e.cnpj){
+    document.getElementById('sped-empresa-grid').innerHTML=
+      '<div class="empty"><div class="empty-ico">📋</div><div class="empty-t">Nenhum SPED carregado</div></div>';
+    return;
+  }
+  const card=(title,rows)=>`<div class="sped-card">
+    <div class="sped-card-title">${title}</div>
+    ${rows.map(([k,v,cls])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v ${cls||''}">${v||'—'}</span></div>`).join('')}
+  </div>`;
+  document.getElementById('sped-empresa-grid').innerHTML=
+    card('Identificação',[
+      ['Razão social',e.nome,''],['Nome fantasia',e.fantasia||'',''],
+      ['CNPJ',e.cnpj,'amber'],['IE',e.ie,''],['UF',e.uf,''],
+      ['Município (cod)',e.codMun,''],['Atividade',e.indAtiv,''],
+    ])+
+    card('Endereço',[
+      ['Logradouro',e.logradouro||'',''],['Bairro',e.bairro||'',''],
+      ['CEP',e.cep||'',''],['Telefone',e.fone||'',''],['E-mail',e.email||'',''],
+    ])+
+    card('Período e arquivos',[
+      ['Competência ini.',e.dtIni?fmtSpedDate(e.dtIni):'','green'],
+      ['Competência fin.',e.dtFin?fmtSpedDate(e.dtFin):'','green'],
+      ['Arquivos SPED',spedData.arquivos.length,'blue'],
+      ['Parceiros',spedData.parceiros.length,'blue'],
+      ['Produtos',spedData.produtos.length,'blue'],
+      ['Entradas',spedData.entradas.length,'blue'],
+    ])+
+    (()=>{
+      const tlist=Object.values(spedData.tribAgr);
+      const ilist=Object.values(spedData.custoProduto).flat();
+      return card('Resumo tributação (C190 agrupado)',[
+        ['Linhas agregadas',tlist.length+' CST/CFOP únicos','blue'],
+        ['Total vl.contábil','R$ '+cur(tlist.reduce((s,t)=>s+t.vlOpr,0)),'amber'],
+        ['Total ICMS','R$ '+cur(tlist.reduce((s,t)=>s+t.vlIcms,0)),''],
+        ['Total ST','R$ '+cur(tlist.reduce((s,t)=>s+t.vlSt,0)),''],
+        ['Total IPI','R$ '+cur(tlist.reduce((s,t)=>s+t.vlIpi,0)),''],
+        ['Total PIS','R$ '+cur(tlist.reduce((s,t)=>s+t.vlPis,0)),''],
+        ['Total COFINS','R$ '+cur(tlist.reduce((s,t)=>s+t.vlCofins,0)),''],
+      ])+card('Custo de entrada (C170)',[
+        ['SKUs com custo',Object.keys(spedData.custoProduto).length,'blue'],
+        ['Total compras','R$ '+cur(ilist.reduce((s,i)=>s+i.vlLiq,0)),'amber'],
+        ['Total ICMS ent.','R$ '+cur(ilist.reduce((s,i)=>s+i.vlIcms,0)),''],
+        ['Total ST ent.','R$ '+cur(ilist.reduce((s,i)=>s+i.vlSt,0)),''],
+      ]);
+    })();
+}
+
+function renderParceiros(){
+  const q=(document.getElementById('sp-parc-q').value||'').toLowerCase();
+  const list=spedData.parceiros.filter(p=>!q||
+    (p.nome||'').toLowerCase().includes(q)||
+    (p.cnpj||'').includes(q)||(p.cpf||'').includes(q));
+  document.getElementById('sp-parc-count').textContent=list.length;
+  document.getElementById('sp-parc-body').innerHTML=list.map(p=>`<tr>
+    <td class="mu">${p.cod}</td>
+    <td title="${p.nome}">${p.nome}</td>
+    <td class="am">${p.cnpj||p.cpf||'—'}</td>
+    <td class="mu">${p.ie||'—'}</td>
+    <td class="mu">${p.codMun||'—'}</td>
+    <td>${getMunUF(p.codMun)||'—'}</td>
+    <td class="mu" title="${p.end}">${p.end}</td>
+  </tr>`).join('');
+}
+
+// Tabela simples cod_mun → UF (municípios mais comuns PR)
+function getMunUF(cod){
+  const m={'4127007':'PR/Teixeira Soares','4106902':'PR/Curitiba','4104659':'PR/Cascavel','4120804':'PR/Ponta Grossa','4113908':'PR/Maringá'};
+  return m[cod]||'';
+}
+
+function renderSpedProdutos(){
+  const q=(document.getElementById('sp-prod-q').value||'').toLowerCase();
+  const list=spedData.produtos.filter(p=>!q||
+    (p.cod||'').toLowerCase().includes(q)||
+    (p.descr||'').toLowerCase().includes(q)||
+    (p.ncm||'').includes(q));
+  const seen=new Set();
+  const uniq=list.filter(p=>{if(seen.has(p.cod))return false;seen.add(p.cod);return true;});
+  document.getElementById('sp-prod-count').textContent=uniq.length;
+
+  // Atualizar cabeçalho da tabela para incluir custo e impostos
+  document.getElementById('sp-prod-tbl').querySelector('thead').innerHTML=`<tr>
+    <th>Código</th><th>Descrição</th><th>EAN</th><th>NCM</th><th>Unid.</th><th>Tipo</th>
+    <th class="n">Últ. custo unit.</th><th class="n">Compras</th>
+    <th class="n">CST ICMS</th><th class="n">Aliq. ICMS</th><th class="n">Vl. ICMS</th>
+    <th class="n">Vl. ST</th><th class="n">CST PIS</th><th class="n">Aliq. PIS</th>
+    <th class="n">CST COF.</th><th class="n">Aliq. COF.</th>
+  </tr>`;
+
+  document.getElementById('sp-prod-body').innerHTML=uniq.map(p=>{
+    // Normalizar código para buscar no mapa de custo (sem zeros à esquerda)
+    const codNorm=p.cod.replace(/^0+/,'');
+    const itens=spedData.custoProduto[codNorm]||spedData.custoProduto[p.cod]||[];
+    // Mais recente primeiro (os arquivos são lidos em ordem cronológica)
+    const ultimo=itens.length?itens[itens.length-1]:null;
+    const totalCompras=itens.reduce((s,i)=>s+i.vlLiq,0);
+    const totalIcms=itens.reduce((s,i)=>s+i.vlIcms,0);
+    const totalSt=itens.reduce((s,i)=>s+i.vlSt,0);
+    const totalPis=itens.reduce((s,i)=>s+i.vlPis,0);
+    const totalCofins=itens.reduce((s,i)=>s+i.vlCofins,0);
+    return`<tr>
+      <td class="am">${p.cod}</td>
+      <td title="${p.descr}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${p.descr}</td>
+      <td class="mu">${p.ean||'—'}</td>
+      <td class="mu">${p.ncm||'—'}</td>
+      <td>${p.unid||'—'}</td>
+      <td class="mu">${p.tipo||'—'}</td>
+      <td class="n am">${ultimo?cur(ultimo.vlUnit):'—'}</td>
+      <td class="n">${itens.length?cur(totalCompras):'—'}</td>
+      <td class="n mu">${ultimo?ultimo.cstIcms:'—'}</td>
+      <td class="n mu">${ultimo&&ultimo.aliqIcms?ultimo.aliqIcms+'%':'—'}</td>
+      <td class="n mu">${itens.length&&totalIcms?cur(totalIcms):'—'}</td>
+      <td class="n mu">${itens.length&&totalSt?cur(totalSt):'—'}</td>
+      <td class="n mu">${ultimo?ultimo.cstPis:'—'}</td>
+      <td class="n mu">${ultimo&&ultimo.aliqPis?ultimo.aliqPis+'%':'—'}</td>
+      <td class="n mu">${ultimo?ultimo.cstCofins:'—'}</td>
+      <td class="n mu">${ultimo&&ultimo.aliqCofins?ultimo.aliqCofins+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCombustivel(){
+  const wrap=document.getElementById('sped-comb-wrap');
+  if(!spedData.bicos.length&&!spedData.tanques.length){
+    wrap.innerHTML='<div class="empty"><div class="empty-ico">⛽</div><div class="empty-t">Nenhum dado de combustível</div><div class="empty-s">Carregue arquivos MovEstoque</div></div>';
+    return;
+  }
+  let html='';
+
+  // ── SEÇÃO 1: BICOS agrupados (principal) ──
+  if(spedData.bicos.length){
+    // Mapa bico → {bomba, tanque, combustível}
+    const bicoMap={};
+    spedData.bicos.forEach(bomba=>{
+      (bomba.bicos||[]).forEach(b=>{
+        const nb=+b.numBico;
+        if(!bicoMap[nb])bicoMap[nb]={numBico:nb,serie:bomba.serie,fab:bomba.fab,modelo:bomba.modelo,seloIcms:bomba.seloIcms||'',numTanque:b.numTanque,indComb:b.indComb};
+      });
+    });
+    const bicosOrdenados=Object.values(bicoMap).sort((a,b)=>a.numBico-b.numBico);
+
+    // Calcular volume total por bico via 1320
+    const volBico={};
+    spedData.tanques.forEach(t=>{
+      (t.bicos||[]).forEach(bk=>{
+        const nb=+bk.num;
+        if(!volBico[nb])volBico[nb]={vol:0,afr:0};
+        volBico[nb].vol+=bk.volume;
+        volBico[nb].afr+=bk.volAfr;
+      });
+    });
+
+    html+=`<div style="padding:16px">
+      <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:12px">
+        Bicos — ${bicosOrdenados.length} bico(s) cadastrado(s)
+      </div>
+      <table class="sped-tbl" style="margin-bottom:20px">
+        <thead><tr>
+          <th>Bico</th><th>Combustível</th><th>Tanque</th>
+          <th>Nº Série Bomba</th><th>Fabricante</th><th>Modelo</th><th>Selo ICMS</th>
+          <th class="n">Vol. Aferido (L)</th><th class="n">Vol. Total (L)</th>
+        </tr></thead>
+        <tbody>${bicosOrdenados.map(b=>{
+          const vb=volBico[b.numBico]||{vol:0,afr:0};
+          const combNome=COMB_TIPO[b.indComb]||('Tipo '+b.indComb);
+          return`<tr>
+            <td class="am" style="font-weight:600">B${b.numBico}</td>
+            <td>${combNome}</td>
+            <td class="mu">T${b.numTanque||'?'}</td>
+            <td class="mu">${b.serie}</td>
+            <td class="mu">${b.fab}</td>
+            <td class="mu">${b.modelo}</td>
+            <td class="mu">${b.seloIcms||'—'}</td>
+            <td class="n mu">${vb.afr>0?cur(vb.afr):'—'}</td>
+            <td class="n">${vb.vol>0?cur(vb.vol):'—'}</td>
+          </tr>`;}).join('')}
+        </tbody>
+      </table>
+
+      <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:12px">
+        Bombas por número de série
+      </div>
+      <table class="sped-tbl" style="margin-bottom:20px">
+        <thead><tr><th>Nº Série</th><th>Fabricante</th><th>Modelo</th><th>Selo ICMS</th><th>Bicos vinculados</th></tr></thead>
+        <tbody>${spedData.bicos.map(bomba=>`<tr>
+          <td class="am">${bomba.serie}</td>
+          <td>${bomba.fab}</td>
+          <td class="mu">${bomba.modelo}</td>
+          <td class="mu">${bomba.seloIcms||'—'}</td>
+          <td>${(bomba.bicos||[]).sort((a,b)=>+a.numBico-(+b.numBico))
+              .map(bk=>`<span style="font-family:var(--mono);font-size:10px;background:var(--s3);border:1px solid var(--b2);border-radius:3px;padding:1px 5px;margin-right:4px">B${bk.numBico}→T${bk.numTanque} ${COMB_TIPO[bk.indComb]||bk.indComb}</span>`)
+              .join('')}</td>
+        </tr>`).join('')}
+        </tbody>
+      </table>
+
+      <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:12px">
+        Tanques — mapa de combustíveis
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:20px">
+        ${(()=>{
+          const tkMap={};
+          spedData.bicos.forEach(bomba=>(bomba.bicos||[]).forEach(b=>{
+            const tk=b.numTanque||'?';
+            if(!tkMap[tk])tkMap[tk]={tanque:tk,combSet:new Set(),bicos:[]};
+            tkMap[tk].combSet.add(COMB_TIPO[b.indComb]||('Tipo '+b.indComb));
+            tkMap[tk].bicos.push('B'+b.numBico);
+          }));
+          return Object.values(tkMap).sort((a,b)=>+a.tanque-(+b.tanque)).map(tk=>`
+            <div class="sped-card">
+              <div class="sped-card-title">Tanque ${tk.tanque}</div>
+              <div class="sped-kv"><span class="sped-k">Combustível</span><span class="sped-v amber">${[...tk.combSet].join(', ')}</span></div>
+              <div class="sped-kv"><span class="sped-k">Bicos</span><span class="sped-v">${tk.bicos.join(' · ')}</span></div>
+            </div>`).join('');
+        })()}
+      </div>
+    </div>`;
+  }
+
+  // ── SEÇÃO 2: Movimentação por produto ──
+  if(spedData.tanques.length){
+    const prodMap={};
+    spedData.tanques.forEach(t=>{
+      if(!prodMap[t.codItem])prodMap[t.codItem]={cod:t.codItem,dias:0,totalEnt:0,totalCons:0,totalPerda:0,totalGanho:0};
+      prodMap[t.codItem].dias++;
+      prodMap[t.codItem].totalEnt+=t.entDia;
+      prodMap[t.codItem].totalCons+=t.consDia;
+      prodMap[t.codItem].totalPerda+=t.perda;
+      prodMap[t.codItem].totalGanho+=t.ganho;
+    });
+    html+=`<div style="padding:0 16px 16px">
+      <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:8px">Movimentação por produto — consolidado</div>
+      <table class="sped-tbl">
+        <thead><tr><th>Cód.</th><th>Descrição</th><th>Dias</th><th class="n">Entradas (L)</th><th class="n">Consumo (L)</th><th class="n">Perdas (L)</th><th class="n">Ganhos (L)</th></tr></thead>
+        <tbody>${Object.values(prodMap).map(p=>{
+          const desc=spedData.produtos.find(pr=>pr.cod===p.cod||pr.cod===p.cod.replace(/^0+/,''));
+          return`<tr>
+            <td class="am">${p.cod}</td>
+            <td>${desc?desc.descr:'—'}</td>
+            <td class="n mu">${p.dias}</td>
+            <td class="n gr">${cur(p.totalEnt)}</td>
+            <td class="n">${cur(p.totalCons)}</td>
+            <td class="n" style="color:${p.totalPerda>0?'var(--red)':'var(--muted2)'}">${cur(p.totalPerda)}</td>
+            <td class="n" style="color:${p.totalGanho>0?'var(--green)':'var(--muted2)'}">${cur(p.totalGanho)}</td>
+          </tr>`;}).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  wrap.innerHTML=html||'<div class="empty"><div class="empty-ico">⛽</div><div class="empty-t">Sem estrutura de bicos/tanques</div></div>';
+}
+
+const COMB_TIPO={'1':'Gasolina Comum','2':'Diesel','3':'Gasolina Aditivada','4':'Etanol Hidratado','5':'GNV','6':'Diesel S10','7':'Biodiesel','2073':'Diesel S10','2074':'Gasolina Aditivada'};
+
+function renderEntradas(){
+  const q=(document.getElementById('sp-ent-q').value||'').toLowerCase();
+  const list=spedData.entradas.filter(e=>!q||
+    (e.codPart||'').toLowerCase().includes(q)||
+    (e.chave||'').includes(q)||
+    (e.num||'').includes(q)||
+    (e.mes||'').includes(q));
+  document.getElementById('sp-ent-count').textContent=list.length;
+  // Get parceiro name
+  const parcMap={};
+  spedData.parceiros.forEach(p=>parcMap[p.cod]=p.nome);
+  document.getElementById('sp-ent-body').innerHTML=list.map(e=>`<tr>
+    <td class="mu">${e.dtEnt||e.mes||'—'}</td>
+    <td class="am">${e.num}</td>
+    <td title="${parcMap[e.codPart]||e.codPart}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${parcMap[e.codPart]||e.codPart}</td>
+    <td class="mu">${e.serie||'—'}</td>
+    <td class="n">${cur(e.vlTotal)}</td>
+    <td class="n mu">${e.vlDesc?cur(e.vlDesc):'—'}</td>
+    <td class="n mu">${e.vlIpi?cur(e.vlIpi):'—'}</td>
+    <td class="n mu">${e.vlSt?cur(e.vlSt):'—'}</td>
+    <td class="mu" style="font-size:9px" title="${e.chave}">${e.chave?e.chave.slice(-8)+'…':e.mod||'—'}</td>
+  </tr>`).join('');
+}
+
+function renderItensC170(){
+  const q=(document.getElementById('sp-itens-q').value||'').toLowerCase();
+  const parcMap={};spedData.parceiros.forEach(p=>parcMap[p.cod]=p.nome);
+
+  // Construir visão agrupada por cod_item
+  // Cada produto: uma linha principal + expansão com histórico de compras
+  const grupos=Object.entries(spedData.custoProduto)
+    .map(([cod,itens])=>{
+      // Ordenar por data de emissão — mais recente primeiro
+      const sorted=[...itens].sort((a,b)=>{
+        const da=a.dtEnt?a.dtEnt.split('/').reverse().join(''):'';
+        const db=b.dtEnt?b.dtEnt.split('/').reverse().join(''):'';
+        return db.localeCompare(da);
+      });
+      const ultimo=sorted[0];
+      // Tributação de saída do C190 para CFOPs de saída
+      // Agregar por CST+CFOP de saída (todos os meses)
+      const saidas=Object.values(spedData.saidaAgr).reduce((acc,t)=>{
+        const k=t.cfop;
+        if(!acc[k])acc[k]={cst:t.cst,cfop:t.cfop,vlOpr:0,vlIcms:0,vlSt:0,vlPis:0,vlCofins:0};
+        acc[k].vlOpr+=t.vlOpr; acc[k].vlIcms+=t.vlIcms;
+        acc[k].vlSt+=t.vlSt;   acc[k].vlPis+=t.vlPis;
+        acc[k].vlCofins+=t.vlCofins;
+        return acc;
+      },{});
+      return {cod,itens:sorted,ultimo,saidas:Object.values(saidas)};
+    })
+    .filter(g=>!q||
+      g.cod.toLowerCase().includes(q)||
+      (g.ultimo.descr||'').toLowerCase().includes(q)||
+      (g.ultimo.cfop||'').includes(q)||
+      (g.ultimo.cstIcms||'').includes(q)
+    )
+    .sort((a,b)=>(a.ultimo.descr||'').localeCompare(b.ultimo.descr||''));
+
+  document.getElementById('sp-itens-count').textContent=grupos.length;
+
+  // Atualizar cabeçalho
+  document.getElementById('sp-itens-tbl').querySelector('thead').innerHTML=`<tr>
+    <th style="width:24px"></th>
+    <th>Código</th><th>Descrição</th><th>Unid.</th>
+    <th class="n">Último custo unit.</th><th class="n">Última compra</th>
+    <th class="n">Nº compras</th><th class="n">Total comprado</th>
+    <th>CST ICMS ent.</th><th class="n">Aliq. ICMS</th><th class="n">Vl. ICMS ent.</th>
+    <th class="n">Vl. ST ent.</th>
+    <th>CST PIS ent.</th><th class="n">Aliq. PIS</th>
+    <th>CST COF. ent.</th><th class="n">Aliq. COF.</th>
+    <th>CFOPs saída</th><th class="n">Vl. ICMS saída</th><th class="n">Vl. ST saída</th>
+  </tr>`;
+
+  document.getElementById('sp-itens-body').innerHTML=grupos.map((g,idx)=>{
+    const u=g.ultimo;
+    const totalQtd=g.itens.reduce((s,i)=>s+i.qtd,0);
+    const totalVl=g.itens.reduce((s,i)=>s+i.vlLiq,0);
+    const totalIcmsEnt=g.itens.reduce((s,i)=>s+i.vlIcms,0);
+    const totalStEnt=g.itens.reduce((s,i)=>s+i.vlSt,0);
+    const totalPisEnt=g.itens.reduce((s,i)=>s+i.vlPis,0);
+    const totalCofEnt=g.itens.reduce((s,i)=>s+i.vlCofins,0);
+    const cfopsSaida=[...new Set(g.saidas.map(s=>s.cfop))].join(', ');
+    const totalIcmsSaida=g.saidas.reduce((s,t)=>s+t.vlIcms,0);
+    const totalStSaida=g.saidas.reduce((s,t)=>s+t.vlSt,0);
+    const rid=`itens_${idx}`;
+    const isOpen=renderItensC170._open===rid;
+
+    // Linhas de histórico de compras
+    const histRows=g.itens.map((i,hi)=>`
+      <tr style="background:var(--s3)">
+        <td colspan="2" style="padding-left:40px">
+          <span style="font-family:var(--mono);font-size:9px;color:${hi===0?'var(--green)':'var(--muted2)'}">
+            ${hi===0?'● mais recente':hi+1+'ª'}
+          </span>
+        </td>
+        <td class="mu">${i.dtEnt||i.mes||'—'}</td>
+        <td class="n">${i.qtd.toLocaleString('pt-BR',{minimumFractionDigits:3})}</td>
+        <td class="n am">${cur(i.vlUnit)}</td>
+        <td class="n">${cur(i.vlLiq)}</td>
+        <td class="mu">${i.cstIcms||'—'}</td>
+        <td>${i.cfop||'—'}</td>
+        <td class="n mu">${i.aliqIcms?i.aliqIcms+'%':'—'}</td>
+        <td class="n mu">${i.vlIcms?cur(i.vlIcms):'—'}</td>
+        <td class="n mu">${i.vlSt?cur(i.vlSt):'—'}</td>
+        <td class="mu">${i.cstPis||'—'} / ${i.aliqPis?i.aliqPis+'%':'—'}</td>
+        <td class="n mu">${i.vlPis?cur(i.vlPis):'—'}</td>
+        <td class="mu">${i.cstCofins||'—'} / ${i.aliqCofins?i.aliqCofins+'%':'—'}</td>
+        <td class="n mu">${i.vlCofins?cur(i.vlCofins):'—'}</td>
+        <td class="mu" title="${parcMap[i.fornecedor]||i.fornecedor}" style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${parcMap[i.fornecedor]||i.fornecedor||'—'}</td>
+        <td colspan="3"></td>
+      </tr>`).join('');
+
+    // Linhas de saída por CST/CFOP
+    const saidaRows=g.saidas.length?g.saidas.map(s=>`
+      <tr style="background:rgba(245,158,11,.04)">
+        <td colspan="2" style="padding-left:40px">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--amber)">▶ saída</span>
+        </td>
+        <td class="mu" colspan="2">CST ${s.cst} / CFOP ${s.cfop}</td>
+        <td class="n">${cur(s.vlOpr)}</td>
+        <td colspan="2"></td>
+        <td class="mu">${s.cst}</td>
+        <td>${s.cfop}</td>
+        <td class="n mu">—</td>
+        <td class="n mu">${s.vlIcms?cur(s.vlIcms):'—'}</td>
+        <td class="n mu">${s.vlSt?cur(s.vlSt):'—'}</td>
+        <td colspan="2" class="mu">[...] ${''}</td>
+        <td class="n mu">${s.vlPis?cur(s.vlPis):'—'}</td>
+        <td colspan="3"></td>
+      </tr>`).join(''):'';
+
+    return`
+    <tr class="cad-row${isOpen?' is-open':''}" onclick="toggleItensRow('${rid}')">
+      <td style="padding:7px 8px;width:24px"><span class="expand-arrow">▶</span></td>
+      <td class="am">${g.cod}</td>
+      <td title="${u.descr}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${u.descr||'—'}</td>
+      <td class="mu">${u.unid||'—'}</td>
+      <td class="n am" style="font-weight:600">${cur(u.vlUnit)}</td>
+      <td class="mu">${u.dtEnt||u.mes||'—'}</td>
+      <td class="n">${g.itens.length}</td>
+      <td class="n">${cur(totalVl)}</td>
+      <td class="mu">${u.cstIcms||'—'}</td>
+      <td class="n mu">${u.aliqIcms?u.aliqIcms+'%':'—'}</td>
+      <td class="n mu">${totalIcmsEnt?cur(totalIcmsEnt):'—'}</td>
+      <td class="n mu">${totalStEnt?cur(totalStEnt):'—'}</td>
+      <td class="mu">${u.cstPis||'—'}</td>
+      <td class="n mu">${u.aliqPis?u.aliqPis+'%':'—'}</td>
+      <td class="mu">${u.cstCofins||'—'}</td>
+      <td class="n mu">${u.aliqCofins?u.aliqCofins+'%':'—'}</td>
+      <td class="mu" style="max-width:100px;overflow:hidden;text-overflow:ellipsis">${cfopsSaida||'—'}</td>
+      <td class="n mu">${totalIcmsSaida?cur(totalIcmsSaida):'—'}</td>
+      <td class="n mu">${totalStSaida?cur(totalStSaida):'—'}</td>
+    </tr>
+    ${isOpen?`
+    <tr class="detail-row is-open">
+      <td class="detail-cell" colspan="19">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px">
+          <thead style="background:var(--s2)"><tr>
+            <th colspan="2" style="padding:5px 12px;color:var(--green);font-size:9px;letter-spacing:.08em">COMPRAS (entradas)</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px">Data</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Qtde</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Vl.Unit</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Vl.Líq.</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px">CST ICMS</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px">CFOP</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Aliq.</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Vl.ICMS</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Vl.ST</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px">PIS/COF CST+%</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Vl.PIS</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px">COF.</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px;text-align:right">Vl.COF.</th>
+            <th style="padding:5px 8px;color:var(--muted);font-size:9px">Fornecedor</th>
+            <th colspan="3"></th>
+          </tr></thead>
+          <tbody>${histRows}${saidaRows}</tbody>
+        </table>
+      </td>
+    </tr>`:''}`;
+  }).join('');
+}
+renderItensC170._open=null;
+
+function toggleItensRow(rid){
+  renderItensC170._open = renderItensC170._open===rid ? null : rid;
+  renderItensC170();
+  if(renderItensC170._open){
+    setTimeout(()=>{
+      const rows=document.querySelectorAll('#spanel-itens .detail-row.is-open');
+      if(rows.length)rows[rows.length-1].scrollIntoView({behavior:'smooth',block:'nearest'});
+    },60);
+  }
+}
+
+function switchSpedTab(id){
+  ['empresa','parceiros','produtos','combustivel','entradas','itens'].forEach(t=>{
+    document.getElementById(`stab-${t}`).classList.toggle('active',t===id);
+    document.getElementById(`spanel-${t}`).classList.toggle('active',t===id);
+  });
+}
+
+function exportSpedCSV(type){
+  const esc=v=>'"'+(String(v||'').replace(/"/g,'""'))+'"';
+  let hdr,rows;
+  if(type==='parceiros'){
+    if(!spedData.parceiros.length){toast('Sem dados','err');return;}
+    hdr='Código;Nome;CNPJ;CPF;IE;CodMun;Endereço;Bairro';
+    rows=spedData.parceiros.map(p=>[p.cod,p.nome,p.cnpj,p.cpf,p.ie,p.codMun,p.end,p.bairro].map(esc).join(';'));
+  } else if(type==='produtos'){
+    if(!spedData.produtos.length){toast('Sem dados','err');return;}
+    hdr='Código;Descrição;EAN;Unidade;Tipo;NCM;AliqICMS;CEST';
+    const seen=new Set();
+    rows=spedData.produtos.filter(p=>{if(seen.has(p.cod))return false;seen.add(p.cod);return true;})
+      .map(p=>[p.cod,p.descr,p.ean,p.unid,p.tipo,p.ncm,p.aliqIcms,p.cest].map(esc).join(';'));
+  } else if(type==='entradas'){
+    if(!spedData.entradas.length){toast('Sem dados','err');return;}
+    const pm={};spedData.parceiros.forEach(p=>pm[p.cod]=p.nome);
+    hdr='Mês;Dt.Entrada;NF;Série;Fornecedor;Chave;VlTotal;VlDesc;VlIPI;VlST;VlPIS;VlCOFINS';
+    rows=spedData.entradas.map(e=>[e.mes,e.dtEnt,e.num,e.serie,pm[e.codPart]||e.codPart,e.chave,
+      cur(e.vlTotal),cur(e.vlDesc),cur(e.vlIpi),cur(e.vlSt),cur(e.vlPis),cur(e.vlCofins)].map(esc).join(';'));
+
+  } else if(type==='itens'){
+    if(!Object.keys(spedData.custoProduto).length){toast('Sem dados','err');return;}
+    const pm={};spedData.parceiros.forEach(p=>pm[p.cod]=p.nome);
+    // Uma linha por produto com dados da compra mais recente + totais + tributação entrada + saída
+    hdr='Código;Descrição;Unid;Últ.Custo.Unit;Últ.Compra;Nº.Compras;Total.Vl.Liq;CST.ICMS.Ent;Aliq.ICMS.Ent;Total.ICMS.Ent;Total.ST.Ent;CST.PIS.Ent;Aliq.PIS.Ent;CST.COF.Ent;Aliq.COF.Ent;CFOPs.Saida;Total.ICMS.Saida;Total.ST.Saida';
+    rows=Object.entries(spedData.custoProduto).map(([cod,itens])=>{
+      const sorted=[...itens].sort((a,b)=>{
+        const da=a.dtEnt?a.dtEnt.split('/').reverse().join(''):'';
+        const db=b.dtEnt?b.dtEnt.split('/').reverse().join(''):'';
+        return db.localeCompare(da);
+      });
+      const u=sorted[0];
+      const totalVl=itens.reduce((s,i)=>s+i.vlLiq,0);
+      const totalIcmsEnt=itens.reduce((s,i)=>s+i.vlIcms,0);
+      const totalStEnt=itens.reduce((s,i)=>s+i.vlSt,0);
+      const saidas=Object.values(spedData.saidaAgr);
+      const cfopsSaida=[...new Set(saidas.map(s=>s.cfop))].join(' / ');
+      const totalIcmsSaida=saidas.reduce((s,t)=>s+t.vlIcms,0);
+      const totalStSaida=saidas.reduce((s,t)=>s+t.vlSt,0);
+      return [
+        cod,u.descr,u.unid,
+        cur(u.vlUnit),u.dtEnt||u.mes||'',itens.length,cur(totalVl),
+        u.cstIcms,u.aliqIcms?u.aliqIcms+'%':'',cur(totalIcmsEnt),cur(totalStEnt),
+        u.cstPis,u.aliqPis?u.aliqPis+'%':'',u.cstCofins,u.aliqCofins?u.aliqCofins+'%':'',
+        cfopsSaida,cur(totalIcmsSaida),cur(totalStSaida)
+      ].map(esc).join(';');
+    });
+  } else if(type==='combustivel'){
+    if(!spedData.bicos.length){toast('Sem dados','err');return;}
+    hdr='Série;Fabricante;Modelo;SeloICMS;NumBico;IndCombustível;NumTanque';
+    rows=spedData.bicos.flatMap(b=>(b.bicos||[]).map(bk=>
+      [b.serie,b.fab,b.modelo,b.seloIcms||'',bk.numBico,COMB_TIPO[bk.indComb]||bk.indComb,bk.numTanque].map(esc).join(';')));
+  }
+  const ts_=new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+  const blob=new Blob(['\uFEFF'+[hdr,...rows].join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download=`sped_${type}_${ts_}.csv`;a.click();URL.revokeObjectURL(url);
+  toast(`CSV ${type} exportado`);
+}
+
+
+// ══════════════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════════════
+function renderDashboard(){
+  const wrap=document.getElementById('dash-content');
+  const hasXml=allProds.length>0;
+  const hasSped=spedData.empresa&&spedData.empresa.cnpj;
+  if(!hasXml&&!hasSped){
+    wrap.innerHTML='<div class="empty" style="height:60vh"><div class="empty-ico">📊</div><div class="empty-t">Sem dados carregados</div><div class="empty-s">Importe XMLs e/ou SPED na aba Importações</div></div>';
+    return;
+  }
+
+  // ── Empresa comparison ──
+  const xmlCnpj   = (()=>{ for(const f of allFiles){const c=f.produtos[0];if(c)return c._cnpj||'';} return ''; })();
+  const xmlNome   = spedData.empresa.nome||'';
+  const spedCnpj  = (spedData.empresa.cnpj||'').replace(/\D/g,'');
+  const spedNome  = spedData.empresa.nome||'';
+  const spedFant  = spedData.empresa.fantasia||'';
+
+  // Extract emitente from first xml file
+  let xmlEmit={nome:'',cnpj:'',fantasia:''};
+  if(allFiles.length){
+    const ff=allFiles.find(f=>f.emitente);
+    if(ff) xmlEmit=ff.emitente;
+  }
+
+  // Compare CNPJ
+  const cnpjMatch = xmlEmit.cnpj && spedCnpj
+    ? xmlEmit.cnpj.replace(/\D/g,'')=== spedCnpj
+    : null;
+  const nomeMatch = xmlEmit.nome && spedNome
+    ? xmlEmit.nome.toUpperCase().trim()===spedNome.toUpperCase().trim()
+    : null;
+
+  // KPIs from XML
+  const totalVendas = allProds.reduce((s,p)=>s+(parseFloat(p.vProd)||0),0);
+  const totalNF     = allFiles.length;
+  const skuCount    = Object.keys(cadMap).length;
+  const erros       = allFiles.filter(f=>f.status==='err').length;
+
+  // KPIs from SPED
+  const totalCompras= Object.values(spedData.custoProduto).flat().reduce((s,i)=>s+i.vlLiq,0);
+  const totalFornec = spedData.entradas.length;
+  const tribAgr     = Object.values(spedData.tribAgr||{});
+
+  // Date range from XML
+  const datas=allFiles.map(f=>f.dhEmi).filter(Boolean).sort();
+  const dtIni=datas[0]?datas[0].slice(0,10):'—';
+  const dtFim=datas[datas.length-1]?datas[datas.length-1].slice(0,10):'—';
+
+  const card=(title,rows,accent)=>`<div class="sped-card">
+    <div class="sped-card-title" style="color:${accent||'var(--accent2)'}">${title}</div>
+    ${rows.map(([k,v,c2])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v ${c2||''}">${v||'—'}</span></div>`).join('')}
+  </div>`;
+
+  // Empresa comparison card
+  let empCard='';
+  if(hasXml&&hasSped){
+    const matchIcon = cnpjMatch===true?'✓ CNPJ coincide':cnpjMatch===false?'✗ CNPJ DIFERENTE':'Sem comparação';
+    const matchColor= cnpjMatch===true?'green':cnpjMatch===false?'red':'';
+    empCard=`<div class="sped-card" style="grid-column:1/-1;border:1px solid ${cnpjMatch===false?'var(--red)':cnpjMatch===true?'var(--green)':'var(--b2)'}">
+      <div class="sped-card-title" style="color:${cnpjMatch===false?'var(--red)':cnpjMatch===true?'var(--green)':'var(--accent2)'}">
+        ${cnpjMatch===false?'⚠ Empresa':'🏢 Empresa'} — ${matchIcon}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--accent2);margin-bottom:6px">XML (emitente NF-e)</div>
+          ${[['Razão social',xmlEmit.nome||'—'],['CNPJ',xmlEmit.cnpj||'—'],['Nome fantasia',xmlEmit.fantasia||'—'],['Período XML',dtIni+' → '+dtFim]].map(([k,v])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v">${v}</span></div>`).join('')}
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--amber);margin-bottom:6px">SPED (0000/0005)</div>
+          ${[['Razão social',spedNome||'—'],['CNPJ',spedCnpj?spedCnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):'—'],['Nome fantasia',spedFant||'—'],['Período SPED',(spedData.empresa.dtIni?fmtSpedDate(spedData.empresa.dtIni):'—')+' → '+(spedData.empresa.dtFin?fmtSpedDate(spedData.empresa.dtFin):'—')]].map(([k,v])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v">${v}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  } else if(hasXml){
+    empCard=card('🏢 Empresa (XML)',[['Razão social',xmlEmit.nome||'—'],['CNPJ',xmlEmit.cnpj||'—'],['Nome fantasia',xmlEmit.fantasia||'—'],['Período',dtIni+' → '+dtFim]],'var(--accent2)');
+  } else if(hasSped){
+    empCard=card('🏢 Empresa (SPED)',[['Razão social',spedNome],['CNPJ',spedCnpj],['Fantasia',spedFant],['Período',(spedData.empresa.dtIni?fmtSpedDate(spedData.empresa.dtIni):'—')+' → '+(spedData.empresa.dtFin?fmtSpedDate(spedData.empresa.dtFin):'—')]],'var(--amber)');
+  }
+
+  const kpiXml = hasXml ? card('📊 Resumo XML',[
+    ['Arquivos NF-e',totalNF,'blue'],
+    ['SKUs únicos',skuCount,'blue'],
+    ['Total vendas','R$ '+cur(totalVendas),'amber'],
+    ['Itens processados',allProds.length,''],
+    ['Arquivos c/ erro',erros, erros>0?'red':''],
+  ],'var(--accent2)') : '';
+
+  const kpiSped = hasSped ? card('📋 Resumo SPED',[
+    ['Parceiros',spedData.parceiros.length,'blue'],
+    ['Produtos 0200',spedData.produtos.length,'blue'],
+    ['Notas entrada',totalFornec,''],
+    ['Total compras','R$ '+cur(totalCompras),'amber'],
+    ['SKUs c/ custo',Object.keys(spedData.custoProduto).length,''],
+  ],'var(--amber)') : '';
+
+  const kpiTrib = tribAgr.length ? card('🧾 Tributação (C190 agrupado)',[
+    ['Grupos CST/CFOP',tribAgr.length,'blue'],
+    ['Total vl.contábil','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlOpr,0)),'amber'],
+    ['Total ICMS','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlIcms,0)),''],
+    ['Total ST','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlSt,0)),''],
+    ['Total PIS','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlPis,0)),''],
+    ['Total COFINS','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlCofins,0)),''],
+  ],'var(--green)') : '';
+
+  const kpiCons = Object.keys(consData).length ? card('🔗 Consolidado',[
+    ['SKUs consolidados',Object.keys(consData).length,'blue'],
+    ['Fontes',['XML','SPED','CSV'].filter(s=>Object.values(consData).some(p=>(p.fonte||'').includes(s))).join(' + '),''],
+  ],'var(--accent2)') : '';
+
+  wrap.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+    ${empCard}${kpiXml}${kpiSped}${kpiTrib}${kpiCons}
+  </div>`;
+}
+
+
+// ══════════════════════════════════════════════════════
+//  CONSOLIDAR
+// ══════════════════════════════════════════════════════
+let consData = {};      // cod → registro consolidado
+let csvExtra  = {};     // cod → campos extras do CSV importado
+let consVisCols = new Set();
+let consPg = 1;
+const CONS_PER = 100;  // itens por página no Consolidar
+const CONS_FIXED_COLS = [
+  'codigo','descricao','ean','ncm','cest','cfop_ent','unidade',
+  'cst_icms_ent','aliq_icms_ent','cst_pis_ent','aliq_pis_ent','cst_cof_ent','aliq_cof_ent',
+  'ult_custo','dt_ult_compra','qtd_compras','total_comprado',
+  'ult_preco_venda','dt_ult_venda','qtd_vendas',
+  'cfops_saida','vl_icms_saida','vl_st_saida',
+  'fonte'
+];
+let consExtraCols = []; // colunas vindas do CSV importado
+
+function buildConsolidado(){
+  consData = {};
+
+  // ── 1. Base: produtos do cadastro XML (SKU agrupado) ──
+  Object.entries(cadMap).forEach(([cod, sku])=>{
+    const norm = cod.replace(/^0+/,'') || cod;
+    consData[norm] = {
+      codigo:          norm,
+      descricao:       sku.xProd || '',
+      ean:             sku.cEAN  || '',
+      ncm:             sku.NCM   || '',
+      cest:            sku.CEST  || '',
+      cfop_ent:        sku.CFOP  || '',
+      unidade:         sku.uCom  || '',
+      cst_icms_ent:    '',
+      aliq_icms_ent:   '',
+      cst_pis_ent:     '',
+      aliq_pis_ent:    '',
+      cst_cof_ent:     '',
+      aliq_cof_ent:    '',
+      ult_custo:       sku.vUnCom || 0,
+      dt_ult_compra:   '',
+      qtd_compras:     sku.qtdV  || 0,
+      total_comprado:  sku.totVal|| 0,
+      ult_preco_venda: sku.vUnCom|| 0,
+      dt_ult_venda:    sku.dhEmi || '',
+      qtd_vendas:      sku.qtdV  || 0,
+      cfops_saida:     '',
+      vl_icms_saida:   0,
+      vl_st_saida:     0,
+      fonte:           'XML',
+    };
+  });
+
+  // ── 2. Enriquecer com dados do SPED ──
+  // 2a. Cadastro 0200
+  spedData.produtos.forEach(p=>{
+    const norm = p.cod.replace(/^0+/,'') || p.cod;
+    if(!consData[norm]){
+      consData[norm]={
+        codigo:norm,descricao:p.descr||'',ean:p.ean||'',
+        ncm:p.ncm||'',cest:p.cest||'',cfop_ent:'',unidade:p.unid||'',
+        cst_icms_ent:'',aliq_icms_ent:'',cst_pis_ent:'',aliq_pis_ent:'',
+        cst_cof_ent:'',aliq_cof_ent:'',
+        ult_custo:0,dt_ult_compra:'',qtd_compras:0,total_comprado:0,
+        ult_preco_venda:0,dt_ult_venda:'',qtd_vendas:0,
+        cfops_saida:'',vl_icms_saida:0,vl_st_saida:0,fonte:'SPED'
+      };
+    } else {
+      consData[norm].fonte='XML+SPED';
+    }
+    // Preencher campos que podem estar vazios
+    if(!consData[norm].descricao) consData[norm].descricao=p.descr||'';
+    if(!consData[norm].ean)       consData[norm].ean=p.ean||'';
+    if(!consData[norm].ncm)       consData[norm].ncm=p.ncm||'';
+    if(!consData[norm].unidade)   consData[norm].unidade=p.unid||'';
+  });
+
+  // 2b. C170 — tributação e custo de entrada (mais recente)
+  Object.entries(spedData.custoProduto).forEach(([cod, itens])=>{
+    const norm = cod.replace(/^0+/,'') || cod;
+    if(!consData[norm]) return;
+    const sorted=[...itens].sort((a,b)=>{
+      const da=a.dtEnt?a.dtEnt.split('/').reverse().join(''):'';
+      const db=b.dtEnt?b.dtEnt.split('/').reverse().join(''):'';
+      return db.localeCompare(da);
+    });
+    const u=sorted[0];
+    consData[norm].cst_icms_ent  = u.cstIcms   || consData[norm].cst_icms_ent;
+    consData[norm].aliq_icms_ent = u.aliqIcms ? u.aliqIcms+'%' : consData[norm].aliq_icms_ent;
+    consData[norm].cst_pis_ent   = u.cstPis    || consData[norm].cst_pis_ent;
+    consData[norm].aliq_pis_ent  = u.aliqPis  ? u.aliqPis+'%' : consData[norm].aliq_pis_ent;
+    consData[norm].cst_cof_ent   = u.cstCofins || consData[norm].cst_cof_ent;
+    consData[norm].aliq_cof_ent  = u.aliqCofins? u.aliqCofins+'%' : consData[norm].aliq_cof_ent;
+    if(u.vlUnit>0){
+      consData[norm].ult_custo     = u.vlUnit;
+      consData[norm].dt_ult_compra = u.dtEnt || u.mes || '';
+    }
+    consData[norm].qtd_compras    = itens.length;
+    consData[norm].total_comprado = itens.reduce((s,i)=>s+i.vlLiq,0);
+    if(consData[norm].cfop_ent==='') consData[norm].cfop_ent=u.cfop||'';
+    if(consData[norm].fonte==='XML') consData[norm].fonte='XML+SPED';
+    else if(consData[norm].fonte==='SPED') consData[norm].fonte='SPED';
+    else consData[norm].fonte='XML+SPED';
+  });
+
+  // 2c. Saídas do C190 agregado
+  const saidaCfops=[...new Set(Object.keys(spedData.saidaAgr))].join(', ');
+  const saidaIcms=Object.values(spedData.saidaAgr).reduce((s,t)=>s+t.vlIcms,0);
+  const saidaSt  =Object.values(spedData.saidaAgr).reduce((s,t)=>s+t.vlSt,0);
+  // Saída é global (C190 não é por produto) — aplicar a todos
+  if(saidaCfops){
+    Object.values(consData).forEach(p=>{
+      if(!p.cfops_saida) p.cfops_saida=saidaCfops;
+    });
+  }
+
+  // ── 3. Sobrescrever/complementar com CSV importado ──
+  Object.entries(csvExtra).forEach(([cod, extra])=>{
+    const norm = cod.replace(/^0+/,'') || cod;
+    if(!consData[norm]){
+      // Produto novo vindo apenas do CSV
+      consData[norm]={ codigo:norm,descricao:'',ean:'',ncm:'',cest:'',cfop_ent:'',unidade:'',
+        cst_icms_ent:'',aliq_icms_ent:'',cst_pis_ent:'',aliq_pis_ent:'',cst_cof_ent:'',aliq_cof_ent:'',
+        ult_custo:0,dt_ult_compra:'',qtd_compras:0,total_comprado:0,
+        ult_preco_venda:0,dt_ult_venda:'',qtd_vendas:0,
+        cfops_saida:'',vl_icms_saida:0,vl_st_saida:0,fonte:'CSV' };
+    } else {
+      consData[norm].fonte += '+CSV';
+    }
+    Object.entries(extra).forEach(([k,v])=>{
+      if(v!==''&&v!==undefined) consData[norm][k]=v;
+    });
+  });
+
+  document.getElementById('badge-cons').textContent=Object.keys(consData).length;
+  buildConsColDefs();
+  renderConsolidado();
+}
+
+function buildConsColDefs(){
+  // Colunas fixas + extras do CSV
+  const allKeys=new Set([...CONS_FIXED_COLS,...consExtraCols]);
+  consVisCols=new Set([...allKeys]);
+  const wrap=document.getElementById('cons-col-opts');
+  wrap.innerHTML='';
+  // Grupo fixo
+  const g1=document.createElement('div');
+  g1.innerHTML='<div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:4px 0 6px">Campos base</div>';
+  CONS_FIXED_COLS.forEach(k=>{
+    const l=document.createElement('label');l.className='col-opt';
+    l.innerHTML=`<input type="checkbox" checked onchange="toggleConsCol('${k}',this.checked)"> ${k}`;
+    g1.appendChild(l);
+  });
+  wrap.appendChild(g1);
+  if(consExtraCols.length){
+    const g2=document.createElement('div');
+    g2.innerHTML='<div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin:10px 0 6px;padding-top:8px;border-top:1px solid var(--b1)">Campos do CSV</div>';
+    consExtraCols.forEach(k=>{
+      const l=document.createElement('label');l.className='col-opt';
+      l.innerHTML=`<input type="checkbox" checked onchange="toggleConsCol('${k}',this.checked)"> ${k}`;
+      g2.appendChild(l);
+    });
+    wrap.appendChild(g2);
+  }
+}
+
+function renderConsolidado(){
+  const q=(document.getElementById('cons-q').value||'').toLowerCase();
+  if(q) consPg=1;  // reset page on search
+  const list=Object.values(consData).filter(p=>!q||
+    (p.codigo||'').toLowerCase().includes(q)||
+    (p.descricao||'').toLowerCase().includes(q)||
+    (p.ncm||'').includes(q)||
+    (p.ean||'').includes(q));
+  list.sort((a,b)=>(a.descricao||'').localeCompare(b.descricao||''));
+
+  document.getElementById('cons-count').textContent=list.length;
+  const wrap=document.getElementById('cons-tbl-wrap');
+
+  if(!list.length){
+    wrap.innerHTML='<div class="empty"><div class="empty-ico">🔗</div><div class="empty-t">Sem dados consolidados</div><div class="empty-s">Carregue XMLs e/ou SPED para consolidar</div></div>';
+    return;
+  }
+
+  const allCols=[...CONS_FIXED_COLS,...consExtraCols].filter(k=>consVisCols.has(k));
+  // Paginação
+  const totPgs=Math.ceil(list.length/CONS_PER);
+  if(consPg>totPgs)consPg=Math.max(1,totPgs);
+  const slice=list.slice((consPg-1)*CONS_PER, consPg*CONS_PER);
+
+  const thead=allCols.map(k=>`<th>${k}</th>`).join('');
+  const tbody=slice.map(p=>{
+    const tds=allCols.map(k=>{
+      const v=p[k]??'';
+      const num=typeof v==='number';
+      if(k==='fonte'){
+        const col=v.includes('CSV')?'var(--amber)':v.includes('SPED')?'var(--accent2)':'var(--green)';
+        return`<td><span style="font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:99px;border:1px solid ${col};color:${col}">${v}</span></td>`;
+      }
+      if(num&&v>0) return`<td class="td-num">${cur(v)}</td>`;
+      return`<td title="${v}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v||'—'}</td>`;
+    }).join('');
+    return`<tr>${tds}</tr>`;
+  }).join('');
+
+  // Pager HTML
+  const pagerHtml=totPgs>1?`<div class="pager" style="flex-shrink:0">
+    <div class="pg-info">Página <b>${consPg}</b> de <b>${totPgs}</b> &nbsp;·&nbsp; <b>${list.length}</b> SKUs</div>
+    <button class="pg-btn" ${consPg<=1?'disabled':''} onclick="consGoPage(-1)">‹</button>
+    ${visiblePages(consPg,totPgs).map(p=>p==='…'
+      ?`<span style="color:var(--muted);font-family:var(--mono);font-size:11px;padding:0 3px">…</span>`
+      :`<button class="pg-btn${p===consPg?' cur':''}" onclick="consGoTo(${p})">${p}</button>`).join('')}
+    <button class="pg-btn" ${consPg>=totPgs?'disabled':''} onclick="consGoPage(1)">›</button>
+  </div>`:'';
+
+  wrap.innerHTML=`<div style="display:flex;flex-direction:column;height:100%">
+    <div style="flex:1;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px">
+        <thead style="position:sticky;top:0;z-index:10;background:var(--s2)"><tr>${thead}</tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>
+    ${pagerHtml}
+  </div>`;
+}
+
+function toggleConsCol(k,v){v?consVisCols.add(k):consVisCols.delete(k);consPg=1;renderConsolidado();}
+function consGoPage(d){consGoTo(consPg+d);}
+function consGoTo(p){consPg=p;renderConsolidado();document.getElementById('cons-tbl-wrap').scrollTop=0;}
+function toggleConsColDrop(){document.getElementById('cons-col-drop').classList.toggle('open');}
+function consColAll(on){
+  const allK=[...CONS_FIXED_COLS,...consExtraCols];
+  allK.forEach(k=>on?consVisCols.add(k):consVisCols.delete(k));
+  document.querySelectorAll('#cons-col-opts input').forEach(cb=>cb.checked=on);
+  renderConsolidado();
+}
+
+function switchConsTab(id){
+  ['prod'].forEach(t=>{
+    document.getElementById(`ctab-${t}`).classList.toggle('active',t===id);
+    document.getElementById(`cpanel-${t}`).classList.toggle('active',t===id);
+  });
+}
+
+// ── Importar CSV complementar ──
+function handleCsvDrop(e){
+  e.preventDefault();document.getElementById('csv-drop').classList.remove('drag');
+  const f=[...e.dataTransfer.files].find(f=>f.name.toLowerCase().endsWith('.csv'));
+  if(f)importCSV(f); else toast('Arraste um arquivo .CSV','err');
+}
+
+function importCSV(file){
+  if(!file)return;
+  // Feedback imediato
+  setImpStatus('csv-log','loading',`⏳ Lendo <b>${file.name}</b>... (${(file.size/1024).toFixed(1)} KB)`);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    setImpStatus('csv-log','loading',`⏳ Processando <b>${file.name}</b>...`);
+    // Pequeno delay para o navegador redesenhar antes de processar
+    setTimeout(()=>{
+      try{
+        let text=e.target.result;
+        if(typeof text!=='string') text=new TextDecoder('windows-1252').decode(text);
+        parseImportedCSV(text, file.name);
+      } catch(err){
+        setImpStatus('csv-log','err',`✗ Erro ao ler ${file.name}: ${err.message}`);
+        toast('Erro ao importar CSV','err');
+      }
+    }, 30);
+  };
+  reader.onerror=()=>{
+    // Tentar como ArrayBuffer (Latin-1)
+    const r2=new FileReader();
+    r2.onload=e2=>{
+      setTimeout(()=>{
+        try{
+          const text=new TextDecoder('windows-1252').decode(e2.target.result);
+          parseImportedCSV(text, file.name);
+        } catch(err){
+          setImpStatus('csv-log','err',`✗ Erro: ${err.message}`);
+        }
+      }, 30);
+    };
+    r2.readAsArrayBuffer(file);
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function parseImportedCSV(text, filename){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){toast('CSV vazio ou inválido','err');return;}
+  // Detect separator
+  const sep=lines[0].includes(';')?';':',';
+  const headers=lines[0].split(sep).map(h=>h.replace(/^["']|["']$/g,'').trim().toLowerCase());
+  // Find code column
+  const codeCol=headers.findIndex(h=>['codigo','cod','cProd','cprod','code','cod_item','coditem'].includes(h));
+  if(codeCol<0){toast('CSV precisa de coluna "codigo" ou "cProd"','err');return;}
+
+  // New extra cols (not already in fixed)
+  const newCols=headers.filter((h,i)=>i!==codeCol&&!CONS_FIXED_COLS.includes(h)&&h);
+  newCols.forEach(k=>{if(!consExtraCols.includes(k))consExtraCols.push(k);});
+
+  let updated=0,added=0;
+  csvExtra={};
+  lines.slice(1).forEach(line=>{
+    if(!line.trim())return;
+    const vals=line.split(sep).map(v=>v.replace(/^["']|["']$/g,'').trim());
+    const cod=(vals[codeCol]||'').replace(/^0+/,'')||vals[codeCol];
+    if(!cod)return;
+    const obj={};
+    headers.forEach((h,i)=>{if(i!==codeCol&&h)obj[h]=vals[i]||'';});
+    csvExtra[cod]=obj;
+    if(consData[cod]){updated++;} else{added++;}
+  });
+
+  // Rebuild cons with new CSV data
+  buildConsolidado();
+  buildConsColDefs();
+  renderConsolidado();
+
+  setImpStatus('csv-log','ok',`✓ <b>${filename}</b> — ${updated} atualizados · ${added} novos · ${newCols.length} coluna(s) extra${newCols.length?': '+newCols.join(', '):''}`)
+  toast(`CSV importado: ${updated} atualizados, ${added} novos`);
+}
+
+function exportConsCSV(){
+  if(!Object.keys(consData).length){toast('Sem dados','err');return;}
+  const esc=v=>'"'+(String(v??'').replace(/"/g,'""'))+'"';
+  const allCols=[...CONS_FIXED_COLS,...consExtraCols].filter(k=>consVisCols.has(k));
+  const hdr=allCols.map(esc).join(';');
+  const q=(document.getElementById('cons-q').value||'').toLowerCase();
+  const list=Object.values(consData).filter(p=>!q||
+    (p.codigo||'').toLowerCase().includes(q)||
+    (p.descricao||'').toLowerCase().includes(q)||
+    (p.ncm||'').includes(q)||(p.ean||'').includes(q));
+  const rows=list.map(p=>allCols.map(k=>esc(p[k]??'')).join(';'));
+  const ts_=new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+  const blob=new Blob(['\uFEFF'+[hdr,...rows].join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download=`consolidado_${ts_}.csv`;a.click();URL.revokeObjectURL(url);
+  toast('CSV consolidado exportado');
+}
+
+// ══════════════════════════════════════════════
+//  PROGRESS OVERLAY
+// ══════════════════════════════════════════════
+const Prog = {
+  _steps: [],
+  show(title, steps){
+    document.getElementById('prog-title-txt').textContent = title;
+    this._steps = steps.map(s=>({...s, state:'pending'}));
+    this._renderSteps();
+    document.getElementById('prog-bar').style.width = '0%';
+    document.getElementById('prog-stage').textContent = '';
+    document.getElementById('prog-file').textContent = '';
+    document.getElementById('prog-stats').innerHTML = '';
+    document.getElementById('progress-overlay').classList.add('show');
+  },
+  step(idx, state, detail=''){
+    if(!this._steps[idx]) return;
+    this._steps[idx].state = state;
+    this._renderSteps();
+    if(detail) document.getElementById('prog-stage').textContent = detail;
+  },
+  file(name){
+    const short = name.length > 52 ? '…' + name.slice(-50) : name;
+    document.getElementById('prog-file').textContent = short;
+  },
+  bar(pct){
+    document.getElementById('prog-bar').style.width = Math.min(100,pct) + '%';
+  },
+  stats(items){
+    // items = [{n, label, color}]
+    document.getElementById('prog-stats').innerHTML = items
+      .map(i=>`<div class="prog-stat"><div class="prog-stat-n" style="color:${i.color||'var(--accent2)'}">${i.n}</div><div class="prog-stat-l">${i.label}</div></div>`)
+      .join('');
+  },
+  hide(){
+    const ov = document.getElementById('progress-overlay');
+    ov.style.opacity='1';
+    ov.style.transition='opacity .4s';
+    ov.style.opacity='0';
+    setTimeout(()=>{ ov.classList.remove('show'); ov.style.opacity=''; ov.style.transition=''; }, 420);
+  },
+  _renderSteps(){
+    const activeIdx = this._steps.findIndex(s=>s.state==='active');
+    document.getElementById('prog-steps').innerHTML = this._steps.map((s,i)=>{
+      const isDone   = s.state==='done';
+      const isActive = s.state==='active';
+      const ico = isDone ? '✓' : isActive ? '▶' : '○';
+      return `<div class="prog-step ${isDone?'done':isActive?'active':''}">
+        <span class="prog-step-ico">${ico}</span>
+        <span>${s.label}</span>
+      </div>`;
+    }).join('');
+    // Auto-advance bar based on done steps
+    const done = this._steps.filter(s=>s.state==='done').length;
+    const pct = done / this._steps.length * 100;
+    this.bar(pct);
+  }
+};
+
+// Update import card status helper
+function setImpStatus(id, type, html){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.className = `imp-status ${type}`;
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function doLogin(){
+  const u=document.getElementById('li-user').value.trim();
+  const p=document.getElementById('li-pass').value;
+  if(u==='lbc'&&p==='8776'){
+    const ov=document.getElementById('login-overlay');
+    ov.style.opacity='0';
+    ov.style.transition='opacity .3s';
+    setTimeout(()=>ov.remove(),300);
+  } else {
+    const err=document.getElementById('li-err');
+    err.textContent='Usuário ou senha incorretos';
+    const inp=document.getElementById('li-pass');
+    inp.style.borderColor='var(--red)';
+    setTimeout(()=>{err.textContent='';inp.style.borderColor='';},2500);
+  }
+}
+
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className=`toast show${type==='err'?' err':''}`;
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='toast',3200);
+}
+</script>
+</body>
+</html>
