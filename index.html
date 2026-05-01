@@ -456,11 +456,23 @@ tr:hover td{background:rgba(23,28,43,.8)}
               <label style="font-size:11px;color:var(--muted2)">Coluna índice (código do produto)</label>
               <select id="csv-code-col" class="fi"></select>
               <label style="font-size:11px;color:var(--muted2);margin-top:4px">Colunas do CSV (selecionar e associar)</label>
+              <label class="col-opt" style="margin:2px 0 2px 0">
+                <input type="checkbox" id="csv-update-existing" checked>
+                Atualizar registros existentes quando o código já existir
+              </label>
               <label class="col-opt" style="margin:2px 0 4px 0">
                 <input type="checkbox" id="csv-extra-toggle-all" checked onchange="toggleAllCsvExtraCols(this.checked)">
                 Marcar/Desmarcar todas
               </label>
               <div id="csv-extra-cols" style="max-height:150px;overflow:auto;border:1px solid var(--b1);border-radius:var(--r);padding:8px;background:var(--s2);display:flex;flex-direction:column;gap:5px"></div>
+              <label class="col-opt" style="margin-top:6px">
+                <input type="checkbox" id="csv-update-existing" checked>
+                Atualizar informações quando o código já existir
+              </label>
+              <label class="col-opt" style="margin-top:2px">
+                <input type="checkbox" id="csv-only-update-existing">
+                Somente atualizar existentes (não importar novos)
+              </label>
               <button class="btn btn-primary" style="margin-top:8px;align-self:flex-start" onclick="applyCsvImport()">Aplicar importação CSV</button>
             </div>
           </div>
@@ -2938,7 +2950,9 @@ function applyCsvImport(){
     if(Number.isInteger(idx)) targetByIdx[idx]=normalizeHeader(sel.value||headers[idx]||'');
   });
 
-  let updated=0,added=0;
+  const updateExisting = !!(document.getElementById('csv-update-existing')||{}).checked;
+  const onlyUpdateExisting = !!(document.getElementById('csv-only-update-existing')||{}).checked;
+  let updated=0,added=0,skipped=0;
   rows.slice(1).forEach(cols=>{
     const codeValue=String(cols[codeCol]||'').trim();
     const cod=codeValue.replace(/^0+/,'')||codeValue;
@@ -2950,9 +2964,20 @@ function applyCsvImport(){
         obj[target]=String(cols[i]??'').trim();
       }
     });
-    const existed=!!csvExtra[cod];
+    const targetKey=findConsKeyByImportedCode(cod);
+    const existedInCsv=!!csvExtra[cod];
+    const existedInBase=!!consData[targetKey];
+    const alreadyExists = existedInCsv || existedInBase;
+    if(onlyUpdateExisting && !alreadyExists){
+      skipped++;
+      return;
+    }
+    if(alreadyExists && !updateExisting && !onlyUpdateExisting){
+      skipped++;
+      return;
+    }
     csvExtra[cod]=Object.assign({},csvExtra[cod]||{},obj);
-    if(existed || consData[findConsKeyByImportedCode(cod)]) updated++;
+    if(alreadyExists) updated++;
     else added++;
   });
 
@@ -2967,10 +2992,10 @@ function applyCsvImport(){
   renderConsolidado();
 
   const idxName=rawHeaders[codeCol]||headers[codeCol]||`coluna_${codeCol+1}`;
-  setImpStatus('csv-log','ok',`✓ <b>${filename}</b> — índice: <b>${idxName}</b> · ${updated} atualizados · ${added} novos · ${selectedCols.length} coluna(s) extra${selectedCols.length?': '+selectedCols.join(', '):''}`);
+  setImpStatus('csv-log','ok',`? <b>${filename}</b> ? ?ndice: <b>${idxName}</b> ? modo: <b>${onlyUpdateExisting?'somente atualizar':(updateExisting?'atualizar existentes':'somente novos')}</b> ? ${updated} atualizados ? ${added} novos${skipped?` ? ${skipped} ignorados`:''} ? ${selectedCols.length} coluna(s) extra${selectedCols.length?': '+selectedCols.join(', '):''}`);
   importMeta.csvAt=new Date().toLocaleString('pt-BR');
   updateImplantacaoUX();
-  toast(`CSV importado: ${updated} atualizados, ${added} novos`);
+  toast(`CSV importado: ${updated} atualizados, ${added} novos${skipped?`, ${skipped} ignorados`:''}`);
   pendingCsvImport=null;
 }
 
@@ -3103,14 +3128,22 @@ function exportConsCSV(){
     return acc;
   },{});
   const msgResumo = Object.entries(resumoFontes).map(([k,v])=>`${k}: ${v}`).join('\n');
+  const extraHeaders = Array.from(new Set((consExtraCols||[]).filter(Boolean)));
+  const exportHeaders = [...EXPORT_TEMPLATE_HEADERS, ...extraHeaders];
   const ok = confirm(
-    `Pre-visualizacao da exportacao\\n\\nItens: ${list.length}\\nFiltro: ${sourceFilter}\\nColunas modelo: ${EXPORT_TEMPLATE_HEADERS.length}\\n\\nComposicao por fonte:\\n${msgResumo}\\n\\nDeseja continuar?`
+    `Pre-visualizacao da exportacao\\n\\nItens: ${list.length}\\nFiltro: ${sourceFilter}\\nColunas modelo: ${EXPORT_TEMPLATE_HEADERS.length}\\nColunas adicionais CSV: ${extraHeaders.length}\\nTotal de colunas: ${exportHeaders.length}\\n\\nComposicao por fonte:\\n${msgResumo}\\n\\nDeseja continuar?`
   );
   if(!ok) return;
-  const hdr=EXPORT_TEMPLATE_HEADERS.map(esc).join(';');
+  const hdr=exportHeaders.map(esc).join(';');
   const rows=list.map(prod=>{
     const row=buildExportRow(prod);
-    return EXPORT_TEMPLATE_HEADERS.map(header=>esc(row[header]||'')).join(';');
+    const imported=csvExtra[prod.codigo]||csvExtra[String(prod.ean||'').trim()]||{};
+    extraHeaders.forEach(h=>{
+      if(row[h]===undefined||row[h]===''){
+        row[h]=imported[h] ?? prod[h] ?? '';
+      }
+    });
+    return exportHeaders.map(header=>esc(row[header]||'')).join(';');
   });
   dlCSV([hdr,...rows].join('\r\n'),`modelo_exportacao_${ts()}.csv`);
   toast(`CSV exportado: ${list.length} item(ns)`);
