@@ -30,7 +30,7 @@ HOST     = "127.0.0.1"
 PORT     = 5000
 URL      = f"http://{HOST}:{PORT}"
 BASE_DIR = Path(__file__).parent.resolve()
-HTML     = BASE_DIR / "nfce_viewer.html"
+HTML     = BASE_DIR / "index.html"
 NS_NFE   = "http://www.portalfiscal.inf.br/nfe"
 CAMPOS   = ['cProd','cEAN','xProd','NCM','CEST','CFOP',
             'uCom','qCom','vUnCom','vProd',
@@ -45,7 +45,7 @@ CORS(app)
 def index():
     if HTML.exists():
         return send_file(str(HTML))
-    return "<h2>nfce_viewer.html não encontrado</h2><p>Coloque o arquivo na mesma pasta que server.py</p>", 404
+    return "<h2>index.html não encontrado</h2><p>Coloque o arquivo na mesma pasta que server.py</p>", 404
 
 def ler_xmls(diretorio: str):
     arquivos = glob.glob(os.path.join(diretorio, "*.xml"))
