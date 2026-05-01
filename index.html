@@ -13,7 +13,7 @@
   --accent:#3b82f6;--accent2:#60a5fa;
   --green:#22d3a4;--amber:#f59e0b;--red:#f43f5e;
   --text:#e2e8f4;--muted:#5a6a8a;--muted2:#8898b8;
-  --mono:'JetBrains Mono',monospace;--sans:'Sora',sans-serif;--r:6px;
+  --mono:'Consolas','JetBrains Mono','Courier New',monospace;--sans:'Segoe UI','Sora','Calibri',sans-serif;--r:6px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -262,6 +262,21 @@ tr:hover td{background:rgba(23,28,43,.8)}
 .imp-status.ok{border-left-color:var(--green);color:var(--green)}
 .imp-status.loading{border-left-color:var(--accent);color:var(--accent2)}
 .imp-status.err{border-left-color:var(--red);color:var(--red)}
+.flow-steps{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:8px;margin:0 0 14px}
+.flow-step{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:8px 10px}
+.flow-step .n{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.flow-step .t{font-family:var(--mono);font-size:10px;color:var(--text);margin-top:2px}
+.flow-step.done{border-color:var(--green)} .flow-step.done .t{color:var(--green)}
+.ready-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:0 0 14px}
+.ready-card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px}
+.ready-k{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.ready-v{font-family:var(--mono);font-size:11px;margin-top:4px}
+.ready-v.ok{color:var(--green)} .ready-v.warn{color:var(--amber)} .ready-v.off{color:var(--muted)}
+.hint-box{margin-top:8px;padding:8px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:var(--r);font-size:11px;color:var(--muted2)}
+.qual{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:99px;border:1px solid}
+.qual.ok{color:var(--green);border-color:var(--green)}
+.qual.mid{color:var(--amber);border-color:var(--amber)}
+.qual.bad{color:var(--red);border-color:var(--red)}
 
 /* ── LOGIN ── */
 #login-overlay{display:none!important}
@@ -312,7 +327,10 @@ tr:hover td{background:rgba(23,28,43,.8)}
     </div>
 
     <div class="sb-block" id="sb-sped-status" style="display:none">
-      <div class="sb-label" style="color:var(--amber)">SPED carregado</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="sb-label" style="color:var(--amber);margin:0">SPED carregado</div>
+        <button class="btn btn-ghost" style="font-size:8px;padding:2px 6px" onclick="clearSpedData()">🗑 Limpar</button>
+      </div>
       <div class="sped-chips" id="sped-chips"></div>
     </div>
 
@@ -345,7 +363,7 @@ tr:hover td{background:rgba(23,28,43,.8)}
     <input type="file" id="folder-input" webkitdirectory multiple accept=".xml" onchange="processFiles(this.files)" style="display:none">
     <input type="file" id="sped-input" multiple accept=".txt,.TXT" onchange="processSpedFiles(this.files)" style="display:none">
     <input type="file" id="sped-folder-input" webkitdirectory multiple accept=".txt,.TXT" onchange="processSpedFiles(this.files)" style="display:none">
-    <input type="file" id="csv-input" accept=".csv" onchange="importCSV(this.files[0])" style="display:none">
+    <input type="file" id="csv-input" accept=".csv" onclick="this.value=''" onchange="importCSV(this.files[0])" style="display:none">
   </aside>
 
   <main>
@@ -365,6 +383,13 @@ tr:hover td{background:rgba(23,28,43,.8)}
     <!-- PAINEL IMPORTAÇÕES -->
     <div class="panel" id="panel-imp">
       <div style="flex:1;overflow-y:auto;padding:24px 28px;max-width:900px">
+        <div class="flow-steps" id="imp-flow-steps">
+          <div class="flow-step" id="stp-xml"><div class="n">Passo 1</div><div class="t">Importar XML</div></div>
+          <div class="flow-step" id="stp-sped"><div class="n">Passo 2</div><div class="t">Importar SPED</div></div>
+          <div class="flow-step" id="stp-csv"><div class="n">Passo 3</div><div class="t">Importar CSV</div></div>
+          <div class="flow-step" id="stp-exp"><div class="n">Passo 4</div><div class="t">Revisar e Exportar</div></div>
+        </div>
+        <div class="ready-grid" id="ready-grid"></div>
 
         <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2);margin-bottom:20px">Fontes de dados</div>
 
@@ -372,6 +397,7 @@ tr:hover td{background:rgba(23,28,43,.8)}
         <div class="sped-card" style="margin-bottom:16px">
           <div class="sped-card-title">XMLs de NFC-e / NF-e</div>
           <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Selecione uma pasta — o sistema busca recursivamente em todas as subpastas.</p>
+          <div class="hint-box">Obrigatórios para migração: código, descrição, NCM/CEST e CFOP de saída.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <div class="drop-zone" style="flex:1;min-width:200px" id="drop-zone"
                  onclick="document.getElementById('folder-input').click()"
@@ -389,6 +415,7 @@ tr:hover td{background:rgba(23,28,43,.8)}
         <div class="sped-card" style="margin-bottom:16px">
           <div class="sped-card-title">SPED Fiscal / MovEstoque / MovPISCOFINS</div>
           <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Selecione uma pasta (busca recursiva) ou arquivos .TXT individuais.</p>
+          <div class="hint-box">Obrigatórios para migração: CFOP de entrada, CST e alíquotas de entrada.</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <div class="sped-drop" style="flex:1;min-width:180px" id="sped-folder-drop"
                  onclick="document.getElementById('sped-folder-input').click()"
@@ -413,7 +440,8 @@ tr:hover td{background:rgba(23,28,43,.8)}
         <!-- CSV -->
         <div class="sped-card">
           <div class="sped-card-title">CSV complementar (para Consolidar)</div>
-          <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Complementa o cadastro consolidado. Precisa de coluna <code style="background:var(--s3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px">codigo</code> ou <code style="background:var(--s3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px">cProd</code>.</p>
+          <p style="font-size:12px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Complementa o cadastro consolidado. Após selecionar o arquivo, escolha a coluna índice (código do produto) e quais colunas extras deseja adicionar.</p>
+          <div class="hint-box">Use para enriquecer cadastro comercial/fiscal (grupos, família, estoque, classificação interna).</div>
           <div class="sped-drop" style="max-width:360px" id="csv-drop"
                onclick="document.getElementById('csv-input').click()"
                ondragover="event.preventDefault();this.classList.add('drag')"
@@ -421,6 +449,20 @@ tr:hover td{background:rgba(23,28,43,.8)}
                ondrop="handleCsvDrop(event)">
             <div class="sped-drop-icon">📄</div>
             <div class="sped-drop-text"><strong>Selecionar arquivo CSV</strong><br><span style="font-size:10px;opacity:.6">separador ; ou , — UTF-8 ou Latin-1</span></div>
+          </div>
+          <div id="csv-config" style="display:none;margin-top:12px;background:var(--s3);border:1px solid var(--b1);border-radius:var(--r);padding:12px">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--muted2);margin-bottom:8px">Configuração da importação</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font-size:11px;color:var(--muted2)">Coluna índice (código do produto)</label>
+              <select id="csv-code-col" class="fi"></select>
+              <label style="font-size:11px;color:var(--muted2);margin-top:4px">Colunas do CSV (selecionar e associar)</label>
+              <label class="col-opt" style="margin:2px 0 4px 0">
+                <input type="checkbox" id="csv-extra-toggle-all" checked onchange="toggleAllCsvExtraCols(this.checked)">
+                Marcar/Desmarcar todas
+              </label>
+              <div id="csv-extra-cols" style="max-height:150px;overflow:auto;border:1px solid var(--b1);border-radius:var(--r);padding:8px;background:var(--s2);display:flex;flex-direction:column;gap:5px"></div>
+              <button class="btn btn-primary" style="margin-top:8px;align-self:flex-start" onclick="applyCsvImport()">Aplicar importação CSV</button>
+            </div>
           </div>
           <div id="csv-log" class="imp-status" style="display:none"></div>
         </div>
@@ -455,7 +497,7 @@ tr:hover td{background:rgba(23,28,43,.8)}
         <div class="toolbar-info"><b id="ci-total">0</b> SKUs</div>
         <span class="toolbar-hint">▸ clique em uma linha para ver histórico</span>
         <div class="col-wrap">
-          <button class="btn btn-ghost" onclick="toggleCadColDrop()">⚙ Colunas</button>
+          <button class="btn btn-ghost" onclick="toggleCadColDrop()">âš™ Colunas</button>
           <div class="col-drop" id="cad-col-drop">
             <div class="sb-label" style="margin-bottom:6px">Colunas visíveis</div>
             <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -581,8 +623,14 @@ tr:hover td{background:rgba(23,28,43,.8)}
         <div class="toolbar">
           <div class="toolbar-info"><b id="cons-count">0</b> SKUs consolidados</div>
           <input class="sped-search" id="cons-q" placeholder="Código / descrição / NCM / EAN..." oninput="renderConsolidado()">
+          <select class="sped-search" id="cons-export-fontes" style="width:250px" title="Filtro de fontes para exportação">
+            <option value="all">Exportar: todas as fontes</option>
+            <option value="xml_sped_csv">Exportar: apenas XML + SPED + CSV</option>
+            <option value="sped_csv">Exportar: apenas SPED + CSV</option>
+            <option value="xml_csv">Exportar: apenas XML + CSV</option>
+          </select>
           <div class="col-wrap">
-            <button class="btn btn-ghost" onclick="toggleConsColDrop()">⚙ Colunas</button>
+            <button class="btn btn-ghost" onclick="toggleConsColDrop()">âš™ Colunas</button>
             <div class="col-drop" id="cons-col-drop">
               <div class="sb-label" style="margin-bottom:6px">Colunas visíveis</div>
               <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -615,6 +663,7 @@ const NS='http://www.portalfiscal.inf.br/nfe';
 let allFiles=[],allProds=[],filtProds=[];
 let cadMap={},filtCad=[];
 let pg=1,cpg=1;
+const importMeta={xmlAt:'',spedAt:'',csvAt:''};
 const PER=50;
 let sK=null,sD=1,csK='xProd',csD=1;
 let openRow=null;
@@ -626,8 +675,11 @@ const NUM_FIELDS=new Set([
   // Combustível (ANP) — campos numéricos
   'comb_qTemp','comb_pBio','comb_encerrante_vEncIni','comb_encerrante_vEncFin',
   'comb_origComb_pOrig',
+  // IBS/CBS (Reforma tributária)
+  'IBSCBS_gIBSCBSMono_vTotIBSMonoItem','IBSCBS_gIBSCBSMono_vTotCBSMonoItem',
+  'gIBSCBSMono_vTotIBSMonoItem','gIBSCBSMono_vTotCBSMonoItem',
   // ICMS
-  'ICMS60_vBC','ICMS60_pICMS','ICMS60_vICMS',
+  'ICMS60_vBC','ICMS60_pICMS','ICMS60_vICMS','ICMS60_vBCEfet','ICMS60_pRedBCEfet','ICMS60_pICMSEfet','ICMS60_vICMSEfet',
   'ICMS61_qBCMonoRet','ICMS61_adRemICMSRet','ICMS61_vICMSMonoRet',
   'ICMS00_vBC','ICMS00_pICMS','ICMS00_vICMS',
   'ICMS10_vBC','ICMS10_pICMS','ICMS10_vICMS','ICMS10_vBCST','ICMS10_pICMSST','ICMS10_vICMSST',
@@ -685,10 +737,69 @@ function normalizeHeader(name){
     .replace(/^_+|_+$/g,'');
 }
 
+function hasSource(prod, src){
+  return String(prod?.fonte||'').split('+').map(s=>s.trim()).includes(src);
+}
+
+function sourceSet(prod){
+  return new Set(String(prod?.fonte||'').split('+').map(s=>s.trim()).filter(Boolean));
+}
+
+function qualidadeCadastro(prod){
+  const miss=[
+    !prod.ncm, !prod.cest, !prod.cfop_ent, !prod.cfops_saida,
+    !hasSource(prod,'CSV')
+  ].filter(Boolean).length;
+  if(miss===0 && sourceSet(prod).size===3) return {lvl:3, lbl:'Completo', cls:'ok'};
+  if(miss<=2) return {lvl:2, lbl:'Parcial', cls:'mid'};
+  return {lvl:1, lbl:'Crítico', cls:'bad'};
+}
+
+function updateImplantacaoUX(){
+  const hasXml=allProds.length>0;
+  const hasSped=!!(spedData.empresa&&spedData.empresa.cnpj);
+  const hasCsv=Object.keys(csvExtra||{}).length>0;
+  const hasCons=Object.keys(consData||{}).length>0;
+  const step=(id,on)=>{const el=document.getElementById(id); if(el) el.classList.toggle('done',!!on);};
+  step('stp-xml',hasXml); step('stp-sped',hasSped); step('stp-csv',hasCsv); step('stp-exp',hasCons&&(hasXml||hasSped));
+  const rg=document.getElementById('ready-grid');
+  if(rg){
+    const card=(k,v,cls)=>`<div class="ready-card"><div class="ready-k">${k}</div><div class="ready-v ${cls}">${v}</div></div>`;
+    rg.innerHTML=[
+      card('XML',hasXml?`OK · ${allFiles.length} arquivos`:'Pendente',''+(hasXml?'ok':'off')),
+      card('SPED',hasSped?`OK · ${spedData.arquivos.length} arquivos`:'Pendente',''+(hasSped?'ok':'off')),
+      card('CSV',hasCsv?`OK · ${Object.keys(csvExtra).length} códigos`:'Pendente',''+(hasCsv?'warn':'off')),
+      card('Consolidado',hasCons?`Pronto · ${Object.keys(consData).length} SKUs`:'Aguardando fontes',''+(hasCons?'ok':'off')),
+    ].join('');
+  }
+}
+
+function toggleAllCsvExtraCols(checked){
+  const wrap=document.getElementById('csv-extra-cols');
+  if(!wrap) return;
+  wrap.querySelectorAll('input[type="checkbox"][data-col-idx]').forEach(cb=>{ cb.checked=checked; });
+}
+
+function syncCsvExtraToggleAll(){
+  const wrap=document.getElementById('csv-extra-cols');
+  const master=document.getElementById('csv-extra-toggle-all');
+  if(!wrap||!master) return;
+  const all=[...wrap.querySelectorAll('input[type="checkbox"][data-col-idx]')];
+  const checked=all.filter(cb=>cb.checked).length;
+  master.checked = all.length>0 && checked===all.length;
+  master.indeterminate = checked>0 && checked<all.length;
+}
+
+function csvTargetOptions(selected){
+  const opts = [selected, ...CONS_FIXED_COLS, ...consExtraCols.filter(c=>!CONS_FIXED_COLS.includes(c))];
+  const uniq = Array.from(new Set(opts));
+  return uniq.map(k=>`<option value="${k}" ${k===selected?'selected':''}>${k}</option>`).join('');
+}
+
 // Ordem preferencial — <prod> primeiro, depois impostos agrupados
 const PREFERRED_ORDER=[
   // Identificação
-  'cProd','cEAN','xProd','NCM','CEST','CFOP','uCom',
+  'cProd','cEAN','xProd','NCM','CEST','CFOP','cProdANP','uCom',
   // Combustível (ANP) — quando aplicável
   'comb_cProdANP','comb_descANP','comb_qTemp','comb_UFCons','comb_pBio',
   'comb_encerrante_nBico','comb_encerrante_nBomba','comb_encerrante_nTanque',
@@ -696,6 +807,8 @@ const PREFERRED_ORDER=[
   'comb_origComb_indImport','comb_origComb_cUFOrig','comb_origComb_pOrig',
   // Valores comerciais
   'qCom','vUnCom','vProd','vDesc','vOutro','indTot',
+  // Reforma tributária (IBS/CBS - Lei 14249/2021)
+  'IBSCBS_CST','IBSCBS_cClassTrib','IBSCBS_gIBSCBSMono_vTotIBSMonoItem','IBSCBS_gIBSCBSMono_vTotCBSMonoItem',
   // Tributação
   'cEANTrib','uTrib','qTrib','vUnTrib',
   // ICMS — incluindo ICMS61 (monofásico de combustíveis)
@@ -738,6 +851,13 @@ function buildDynamicCols(fields){
     t:  k==='_file'?'src': DESC_FIELDS.has(k)?'desc': NUM_FIELDS.has(k)?'num':'text'
   }));
   visCols=new Set(COLS.map(c=>c.k));
+
+  // ── DEBUG: Log dos campos descobertos ──
+  const ibsFields=sorted.filter(f=>f.includes('IBS')||f.includes('CBS'));
+  const anpFields=sorted.filter(f=>f.includes('cProd'));
+  console.log(`[DEBUG] Campos descobertos: ${sorted.length} total`);
+  console.log(`[DEBUG] IBS/CBS: ${ibsFields.length} - ${ibsFields.join(', ')}`);
+  console.log(`[DEBUG] ANP/cProd: ${anpFields.length} - ${anpFields.join(', ')}`);
 
   // ── Aba Cadastro SKU: campos descobertos + colunas de estatística ──
   const cadDyn=[...PREFERRED_ORDER.filter(f=>fields.has(f)),...[...fields].filter(f=>!PREFERRED_ORDER.includes(f)).sort()];
@@ -824,10 +944,15 @@ async function processFiles(fileList){
   allProds=allFiles.flatMap(f=>f.produtos);
   Prog.step(1,'active',`${allProds.length} itens extraídos — montando colunas...`);
   await new Promise(r=>setTimeout(r,0));
-  // Enriquecer labels dos campos de combustível (ANP) e impostos
+  // Enriquecer labels dos campos de combustível (ANP), reforma tributária e impostos
   const ENRICHED_LABELS={
-    'comb_cProdANP':'Código ANP',
+    'cProdANP':'Código ANP (XML)',
+    'comb_cProdANP':'Código ANP (SPED)',
     'comb_descANP':'Descrição ANP',
+    'IBSCBS_CST':'IBS/CBS CST',
+    'IBSCBS_cClassTrib':'Classificação Tributária IBS/CBS',
+    'IBSCBS_gIBSCBSMono_vTotIBSMonoItem':'IBS Monofásico Item',
+    'IBSCBS_gIBSCBSMono_vTotCBSMonoItem':'CBS Monofásico Item',
     'comb_qTemp':'Qtde Temporizador',
     'comb_UFCons':'UF Consumo',
     'comb_pBio':'% Biodiesel',
@@ -906,6 +1031,8 @@ async function processFiles(fileList){
   chip.textContent=`${allFiles.length} XML · ${skus} SKUs`;
   chip.className='chip active';
   setImpStatus('xml-status','ok',`✓ ${allFiles.length} arquivo(s) · ${skus} SKUs · ${allProds.length} itens${errs.length?' · '+errs.length+' erro(s)':''}`);
+  importMeta.xmlAt=new Date().toLocaleString('pt-BR');
+  updateImplantacaoUX();
   toast(`${skus} SKUs · ${allProds.length} itens de ${allFiles.length} arquivos`);
 }
 
@@ -954,19 +1081,41 @@ function parseXML(file){
           }
         }
 
+        // ── Extrair CFOP da nota (não do item) ──
+        let cfopNota='';
+        const ideEl=doc.getElementsByTagNameNS(NS,'ide')[0]||doc.getElementsByTagName('ide')[0];
+        if(ideEl){
+          const cfopEl=ideEl.getElementsByTagNameNS(NS,'CFOP')[0]||ideEl.getElementsByTagName('CFOP')[0];
+          if(cfopEl) cfopNota=cfopEl.textContent||'';
+        }
+
         if(dets.length){
           en.produtos=dets.map(det=>{
-            const o={_file:file.name,_path:file.webkitRelativePath||file.name,_dhEmi:en.dhEmi};
+            const o={_file:file.name,_path:file.webkitRelativePath||file.name,_dhEmi:en.dhEmi,_cfopNota:cfopNota};
             for(const child of det.children){
               const tag=child.localName||child.tagName.split(':').pop();
               if(tag==='prod'){
                 // Campos de <prod> sem prefixo — ex: cProd, xProd, NCM ...
                 extractLeaves(child,'',o);
+                // ── Extrair cProdANP especificamente (combustível ANP) ──
+                const cProdANPEl=child.getElementsByTagNameNS(NS,'cProdANP')[0]||child.getElementsByTagName('cProdANP')[0];
+                if(cProdANPEl){
+                  const key='cProdANP';
+                  if(!fieldLabels[key]) fieldLabels[key]='Código ANP (NFC-e)';
+                  discoveredFields.add(key);
+                  o[key]=cProdANPEl.textContent||'';
+                  console.log(`[parseXML] cProdANP encontrado: ${o[key]}`);
+                }
+                // ── Se houver CFOP em <prod>, sobrescreve o valor (mais específico que <ide>) ──
+                const cfopProdEl=child.getElementsByTagNameNS(NS,'CFOP')[0]||child.getElementsByTagName('CFOP')[0];
+                if(cfopProdEl) o._cfopNota=cfopProdEl.textContent||cfopNota;
               } else if(tag==='imposto'){
-                // Pula o <ICMS>/<PIS>/<COFINS>/<IPI> wrapper — vai direto para o grupo modal
-                // <ICMS><ICMS60><CST> → "ICMS60.CST", <PIS><PISNT><CST> → "PISNT.CST"
+                // Pula o <ICMS>/<PIS>/<COFINS>/<IPI>/<IBSCBS> wrapper — vai direto para o grupo modal
+                // <ICMS><ICMS60><CST> → "ICMS60.CST", <PIS><PISNT><CST> → "PISNT.CST", <IBSCBS><CST> → "IBSCBS.CST"
                 for(const trib of child.children){
-                  extractLeaves(trib,'',o);
+                  const tribTag=trib.localName||trib.tagName.split(':').pop();
+                  // Manter o nome do wrapper (ICMS60, PISNT, IBSCBS, etc)
+                  extractLeaves(trib, tribTag, o);
                 }
               } else {
                 // Outros irmãos de <prod> (raro, ex: <obsItem>)
@@ -1038,9 +1187,12 @@ async function buildCad(onProgress){
       s.cEAN     = src.cEAN    ||src['cEAN']   ||'';
       s.NCM      = src.NCM     ||src['NCM']    ||'';
       s.CEST     = src.CEST    ||src['CEST']   ||'';
-      s.CFOP     = src.CFOP    ||src['CFOP']   ||'';
+      // ── CFOP: preferir CFOP da nota (mais confiável), depois recursivo ──
+      s.CFOP     = src._cfopNota || src.CFOP    ||src['CFOP']   ||'';
       s.uCom     = src.uCom    ||src['uCom']   ||'';
       s.indTot   = src.indTot  ||src['indTot'] ||'';
+      // ── ANP: extrair cProdANP se existir ──
+      s.cProdANP = src.cProdANP || src['cProdANP'] || '';
       s.dhEmi    = r.dhEmi;
       s.arquivo  = r.arquivo;
       s.vUnCom   = r.vUnCom;
@@ -1135,7 +1287,7 @@ function renderCad(){
     }).join('');
     tbody+=`
     <tr class="cad-row${isO?' is-open':''}" onclick="toggleRow('${rid}')">
-      <td style="padding:7px 8px;width:24px"><span class="expand-arrow">▶</span></td>${tds}
+      <td style="padding:7px 8px;width:24px"><span class="expand-arrow">â–¶</span></td>${tds}
     </tr>
     <tr class="detail-row${isO?' is-open':''}"><td class="detail-cell" colspan="${visCadCols.length+1}">${isO?buildDetail(s):''}</td></tr>`;
   });
@@ -1426,9 +1578,12 @@ async function processSpedFiles(fileList){
   Prog.step(0,'active',`Aguardando leitura...`);
   await new Promise(r=>setTimeout(r,30));
 
-  spedData={arquivos:[],empresa:{},parceiros:[],produtos:[],tanques:[],bicos:[],entradas:[],custoProduto:{},tribAgr:{},saidaAgr:{},_currentNota:null};
+  // Se spedData está vazio, inicializar; caso contrário, manter dados anteriores (ACUMULAR)
+  if(!spedData.arquivos || spedData.arquivos.length===0){
+    spedData={arquivos:[],empresa:{},parceiros:[],produtos:[],tanques:[],bicos:[],entradas:[],custoProduto:{},tribAgr:{},saidaAgr:{},_currentNota:null};
+  }
   const chipsEl=document.getElementById('sped-chips');
-  chipsEl.innerHTML='';
+  // NÃO limpar: chipsEl.innerHTML=''; — manter chips anteriores
 
   for(let i=0;i<files.length;i++){
     const file=files[i];
@@ -1500,6 +1655,8 @@ async function processSpedFiles(fileList){
 
   const tribN=Object.keys(spedData.tribAgr).length;
   setImpStatus('sped-status','ok',`✓ ${spedData.arquivos.length} arquivo(s) · ${spedData.parceiros.length} parceiros · ${spedData.entradas.length} entradas · ${tribN} grupos C190`);
+  importMeta.spedAt=new Date().toLocaleString('pt-BR');
+  updateImplantacaoUX();
   toast(`SPED: ${spedData.parceiros.length} parceiros · ${spedData.entradas.length} entradas · ${tribN} grupos C190`);
 }
 
@@ -1525,6 +1682,37 @@ function handleSpedFolderDrop(e){
     const txts=[...e.dataTransfer.files].filter(f=>f.name.toUpperCase().endsWith('.TXT'));
     if(txts.length)processSpedFiles(txts); else toast('Arraste uma pasta ou arquivos .TXT','err');
   }
+}
+
+// Limpar dados SPED e atualizar telas
+function clearSpedData(){
+  spedData={arquivos:[],empresa:{},parceiros:[],produtos:[],tanques:[],bicos:[],entradas:[],custoProduto:{},tribAgr:{},saidaAgr:{},_currentNota:null};
+  document.getElementById('sped-chips').innerHTML='';
+  document.getElementById('badge-sped').textContent='0';
+  document.getElementById('sb-sped-status').style.display='none';
+  
+  // Limpar renderizações
+  document.getElementById('sped-empresa-grid').innerHTML='<div class="empty"><div class="empty-ico">📋</div><div class="empty-t">Nenhum SPED carregado</div></div>';
+  document.getElementById('sp-parc-body').innerHTML='';
+  document.getElementById('sp-prod-body').innerHTML='';
+  document.getElementById('sped-comb-wrap').innerHTML='<div class="empty"><div class="empty-ico">⛽</div><div class="empty-t">Nenhum dado de combustível</div></div>';
+  document.getElementById('sp-ent-body').innerHTML='';
+  document.getElementById('sp-itens-body').innerHTML='';
+  
+  // Atualizar contadores
+  document.getElementById('sp-parc-count').textContent='0';
+  document.getElementById('sp-prod-count').textContent='0';
+  document.getElementById('sp-ent-count').textContent='0';
+  document.getElementById('sp-itens-count').textContent='0';
+  
+  // Atualizar consolidado
+  buildConsolidado();
+  renderDashboard();
+  
+  setImpStatus('sped-status','ok','✓ Dados SPED limpos');
+  importMeta.spedAt='';
+  updateImplantacaoUX();
+  toast('Dados SPED limpos com sucesso');
 }
 
 // ── Parser principal ──
@@ -2162,7 +2350,7 @@ function renderItensC170(){
 
     return`
     <tr class="cad-row${isOpen?' is-open':''}" onclick="toggleItensRow('${rid}')">
-      <td style="padding:7px 8px;width:24px"><span class="expand-arrow">▶</span></td>
+      <td style="padding:7px 8px;width:24px"><span class="expand-arrow">â–¶</span></td>
       <td class="am">${g.cod}</td>
       <td title="${u.descr}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${u.descr||'—'}</td>
       <td class="mu">${u.unid||'—'}</td>
@@ -2296,118 +2484,60 @@ function exportSpedCSV(type){
 // ══════════════════════════════════════════════════════
 function renderDashboard(){
   const wrap=document.getElementById('dash-content');
+  const list=Object.values(consData||{});
   const hasXml=allProds.length>0;
-  const hasSped=spedData.empresa&&spedData.empresa.cnpj;
-  if(!hasXml&&!hasSped){
-    wrap.innerHTML='<div class="empty" style="height:60vh"><div class="empty-ico">📊</div><div class="empty-t">Sem dados carregados</div><div class="empty-s">Importe XMLs e/ou SPED na aba Importações</div></div>';
+  const hasSped=!!(spedData.empresa&&spedData.empresa.cnpj);
+  const hasCsv=Object.keys(csvExtra||{}).length>0;
+
+  updateImplantacaoUX();
+
+  if(!hasXml&&!hasSped&&!hasCsv){
+    wrap.innerHTML='<div class="empty" style="height:60vh"><div class="empty-ico">[ ]</div><div class="empty-t">Sem dados carregados</div><div class="empty-s">Importe XML e/ou SPED na aba Importacoes</div></div>';
     return;
   }
 
-  // ── Empresa comparison ──
-  const xmlCnpj   = (()=>{ for(const f of allFiles){const c=f.produtos[0];if(c)return c._cnpj||'';} return ''; })();
-  const xmlNome   = spedData.empresa.nome||'';
-  const spedCnpj  = (spedData.empresa.cnpj||'').replace(/\D/g,'');
-  const spedNome  = spedData.empresa.nome||'';
-  const spedFant  = spedData.empresa.fantasia||'';
+  const pend={
+    ncm:list.filter(p=>!String(p.ncm||'').trim()).length,
+    cest:list.filter(p=>!String(p.cest||'').trim()).length,
+    cfopEnt:list.filter(p=>!String(p.cfop_ent||'').trim()).length,
+    cfopSai:list.filter(p=>!String(p.cfops_saida||'').trim()).length,
+    fonteCompleta:list.filter(p=>sourceSet(p).size===3).length,
+  };
+  const completos=list.filter(p=>qualidadeCadastro(p).lvl===3).length;
+  const parciais=list.filter(p=>qualidadeCadastro(p).lvl===2).length;
+  const criticos=list.filter(p=>qualidadeCadastro(p).lvl===1).length;
 
-  // Extract emitente from first xml file
-  let xmlEmit={nome:'',cnpj:'',fantasia:''};
-  if(allFiles.length){
-    const ff=allFiles.find(f=>f.emitente);
-    if(ff) xmlEmit=ff.emitente;
-  }
-
-  // Compare CNPJ
-  const cnpjMatch = xmlEmit.cnpj && spedCnpj
-    ? xmlEmit.cnpj.replace(/\D/g,'')=== spedCnpj
-    : null;
-  const nomeMatch = xmlEmit.nome && spedNome
-    ? xmlEmit.nome.toUpperCase().trim()===spedNome.toUpperCase().trim()
-    : null;
-
-  // KPIs from XML
-  const totalVendas = allProds.reduce((s,p)=>s+(parseFloat(p.vProd)||0),0);
-  const totalNF     = allFiles.length;
-  const skuCount    = Object.keys(cadMap).length;
-  const erros       = allFiles.filter(f=>f.status==='err').length;
-
-  // KPIs from SPED
-  const totalCompras= Object.values(spedData.custoProduto).flat().reduce((s,i)=>s+i.vlLiq,0);
-  const totalFornec = spedData.entradas.length;
-  const tribAgr     = Object.values(spedData.tribAgr||{});
-
-  // Date range from XML
-  const datas=allFiles.map(f=>f.dhEmi).filter(Boolean).sort();
-  const dtIni=datas[0]?datas[0].slice(0,10):'—';
-  const dtFim=datas[datas.length-1]?datas[datas.length-1].slice(0,10):'—';
-
-  const card=(title,rows,accent)=>`<div class="sped-card">
-    <div class="sped-card-title" style="color:${accent||'var(--accent2)'}">${title}</div>
-    ${rows.map(([k,v,c2])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v ${c2||''}">${v||'—'}</span></div>`).join('')}
+  const card=(title,rows,accent='var(--accent2)')=>`<div class="sped-card">
+    <div class="sped-card-title" style="color:${accent}">${title}</div>
+    ${rows.map(([k,v,c2])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v ${c2||''}">${v}</span></div>`).join('')}
   </div>`;
 
-  // Empresa comparison card
-  let empCard='';
-  if(hasXml&&hasSped){
-    const matchIcon = cnpjMatch===true?'✓ CNPJ coincide':cnpjMatch===false?'✗ CNPJ DIFERENTE':'Sem comparação';
-    const matchColor= cnpjMatch===true?'green':cnpjMatch===false?'red':'';
-    empCard=`<div class="sped-card" style="grid-column:1/-1;border:1px solid ${cnpjMatch===false?'var(--red)':cnpjMatch===true?'var(--green)':'var(--b2)'}">
-      <div class="sped-card-title" style="color:${cnpjMatch===false?'var(--red)':cnpjMatch===true?'var(--green)':'var(--accent2)'}">
-        ${cnpjMatch===false?'⚠ Empresa':'🏢 Empresa'} — ${matchIcon}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px">
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--accent2);margin-bottom:6px">XML (emitente NF-e)</div>
-          ${[['Razão social',xmlEmit.nome||'—'],['CNPJ',xmlEmit.cnpj||'—'],['Nome fantasia',xmlEmit.fantasia||'—'],['Período XML',dtIni+' → '+dtFim]].map(([k,v])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v">${v}</span></div>`).join('')}
-        </div>
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--amber);margin-bottom:6px">SPED (0000/0005)</div>
-          ${[['Razão social',spedNome||'—'],['CNPJ',spedCnpj?spedCnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):'—'],['Nome fantasia',spedFant||'—'],['Período SPED',(spedData.empresa.dtIni?fmtSpedDate(spedData.empresa.dtIni):'—')+' → '+(spedData.empresa.dtFin?fmtSpedDate(spedData.empresa.dtFin):'—')]].map(([k,v])=>`<div class="sped-kv"><span class="sped-k">${k}</span><span class="sped-v">${v}</span></div>`).join('')}
-        </div>
-      </div>
-    </div>`;
-  } else if(hasXml){
-    empCard=card('🏢 Empresa (XML)',[['Razão social',xmlEmit.nome||'—'],['CNPJ',xmlEmit.cnpj||'—'],['Nome fantasia',xmlEmit.fantasia||'—'],['Período',dtIni+' → '+dtFim]],'var(--accent2)');
-  } else if(hasSped){
-    empCard=card('🏢 Empresa (SPED)',[['Razão social',spedNome],['CNPJ',spedCnpj],['Fantasia',spedFant],['Período',(spedData.empresa.dtIni?fmtSpedDate(spedData.empresa.dtIni):'—')+' → '+(spedData.empresa.dtFin?fmtSpedDate(spedData.empresa.dtFin):'—')]],'var(--amber)');
-  }
+  const pendHtml=card('Pendencias para Migracao',[
+    ['Sem NCM',pend.ncm,pend.ncm?'amber':'green'],
+    ['Sem CEST',pend.cest,pend.cest?'amber':'green'],
+    ['Sem CFOP entrada',pend.cfopEnt,pend.cfopEnt?'amber':'green'],
+    ['Sem CFOP saida',pend.cfopSai,pend.cfopSai?'amber':'green'],
+    ['Com fonte completa (XML+SPED+CSV)',pend.fonteCompleta,'blue'],
+  ],'var(--amber)');
 
-  const kpiXml = hasXml ? card('📊 Resumo XML',[
-    ['Arquivos NF-e',totalNF,'blue'],
-    ['SKUs únicos',skuCount,'blue'],
-    ['Total vendas','R$ '+cur(totalVendas),'amber'],
-    ['Itens processados',allProds.length,''],
-    ['Arquivos c/ erro',erros, erros>0?'red':''],
-  ],'var(--accent2)') : '';
+  const qualHtml=card('Qualidade do Consolidado',[
+    ['SKUs consolidados',list.length,'blue'],
+    ['Completo',completos,'green'],
+    ['Parcial',parciais,'amber'],
+    ['Critico',criticos,criticos?'red':'green'],
+  ],'var(--green)');
 
-  const kpiSped = hasSped ? card('📋 Resumo SPED',[
-    ['Parceiros',spedData.parceiros.length,'blue'],
-    ['Produtos 0200',spedData.produtos.length,'blue'],
-    ['Notas entrada',totalFornec,''],
-    ['Total compras','R$ '+cur(totalCompras),'amber'],
-    ['SKUs c/ custo',Object.keys(spedData.custoProduto).length,''],
-  ],'var(--amber)') : '';
+  const importHtml=card('Status de Importacao',[
+    ['XML',hasXml?`OK (${allFiles.length} arquivos)`:'Pendente',hasXml?'green':''],
+    ['SPED',hasSped?`OK (${spedData.arquivos.length} arquivos)`:'Pendente',hasSped?'green':''],
+    ['CSV',hasCsv?`OK (${Object.keys(csvExtra).length} codigos)`:'Pendente',hasCsv?'green':''],
+    ['Ult. XML',importMeta.xmlAt||'-',''],
+    ['Ult. SPED',importMeta.spedAt||'-',''],
+    ['Ult. CSV',importMeta.csvAt||'-',''],
+  ],'var(--accent2)');
 
-  const kpiTrib = tribAgr.length ? card('🧾 Tributação (C190 agrupado)',[
-    ['Grupos CST/CFOP',tribAgr.length,'blue'],
-    ['Total vl.contábil','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlOpr,0)),'amber'],
-    ['Total ICMS','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlIcms,0)),''],
-    ['Total ST','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlSt,0)),''],
-    ['Total PIS','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlPis,0)),''],
-    ['Total COFINS','R$ '+cur(tribAgr.reduce((s,t)=>s+t.vlCofins,0)),''],
-  ],'var(--green)') : '';
-
-  const kpiCons = Object.keys(consData).length ? card('🔗 Consolidado',[
-    ['SKUs consolidados',Object.keys(consData).length,'blue'],
-    ['Fontes',['XML','SPED','CSV'].filter(s=>Object.values(consData).some(p=>(p.fonte||'').includes(s))).join(' + '),''],
-  ],'var(--accent2)') : '';
-
-  wrap.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
-    ${empCard}${kpiXml}${kpiSped}${kpiTrib}${kpiCons}
-  </div>`;
+  wrap.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">${importHtml}${pendHtml}${qualHtml}</div>`;
 }
-
-
 // ══════════════════════════════════════════════════════
 //  CONSOLIDAR
 // ══════════════════════════════════════════════════════
@@ -2415,9 +2545,10 @@ let consData = {};      // cod → registro consolidado
 let csvExtra  = {};     // cod → campos extras do CSV importado
 let consVisCols = new Set();
 let consPg = 1;
+let pendingCsvImport = null;
 const CONS_PER = 100;  // itens por página no Consolidar
 const CONS_FIXED_COLS = [
-  'codigo','descricao','ean','ncm','cest','cfop_ent','unidade',
+  'codigo','descricao','ean','ncm','cest','anp','classtrib','ibs','cbs','cfop_ent','unidade',
   'cst_icms_ent','aliq_icms_ent','cst_pis_ent','aliq_pis_ent','cst_cof_ent','aliq_cof_ent',
   'ult_custo','dt_ult_compra','qtd_compras','total_comprado',
   'ult_preco_venda','dt_ult_venda','qtd_vendas',
@@ -2430,9 +2561,11 @@ let csvImportHeaders = [];
 function findConsKeyByImportedCode(code){
   const raw=String(code||'').trim();
   const norm=raw.replace(/^0+/,'')||raw;
+  // Regra de vínculo: 1) tentar EAN, 2) fallback por código
+  const foundByEan=Object.values(consData).find(prod=>(prod.ean||'').trim()===raw);
+  if(foundByEan) return foundByEan.codigo;
   if(consData[norm]) return norm;
-  const found=Object.values(consData).find(prod=>(prod.ean||'').trim()===raw);
-  return found ? found.codigo : norm;
+  return norm;
 }
 
 function buildConsolidado(){
@@ -2447,8 +2580,20 @@ function buildConsolidado(){
       ean:             sku.cEAN  || '',
       ncm:             sku.NCM   || '',
       cest:            sku.CEST  || '',
-      cfop_ent:        sku.CFOP  || '',
+      anp:             sku.cProdANP || '',
+      classtrib:       sku.IBSCBS_cClassTrib || '',
+      ibs:             sku.IBSCBS_gIBSCBSMono_vTotIBSMonoItem || '',
+      cbs:             sku.IBSCBS_gIBSCBSMono_vTotCBSMonoItem || '',
+      cfop_ent:        '',                     // CFOP de ENTRADA (do SPED)
       unidade:         sku.uCom  || '',
+      // Campos de combustível (ANP)
+      cProdANP:        sku.cProdANP || '',
+      // Campos de reforma tributária (IBS/CBS)
+      ibs_cst:         sku.IBSCBS_CST || '',
+      ibs_classTrib:  sku.IBSCBS_cClassTrib || '',
+      ibs_vTotIBSMono: sku.IBSCBS_gIBSCBSMono_vTotIBSMonoItem || '',
+      ibs_vTotCBSMono: sku.IBSCBS_gIBSCBSMono_vTotCBSMonoItem || '',
+      // Impostos
       cst_icms_ent:    '',
       aliq_icms_ent:   '',
       cst_pis_ent:     '',
@@ -2462,7 +2607,7 @@ function buildConsolidado(){
       ult_preco_venda: sku.vUnCom|| 0,
       dt_ult_venda:    sku.dhEmi || '',
       qtd_vendas:      sku.qtdV  || 0,
-      cfops_saida:     '',
+      cfops_saida:     sku.CFOP || '',         // CFOP de SAÍDA (mais recente do XML)
       vl_icms_saida:   0,
       vl_st_saida:     0,
       fonte:           'XML',
@@ -2476,7 +2621,7 @@ function buildConsolidado(){
     if(!consData[norm]){
       consData[norm]={
         codigo:norm,descricao:p.descr||'',ean:p.ean||'',
-        ncm:p.ncm||'',cest:p.cest||'',cfop_ent:'',unidade:p.unid||'',
+        ncm:p.ncm||'',cest:p.cest||'',anp:'',classtrib:'',ibs:'',cbs:'',cfop_ent:'',unidade:p.unid||'',
         cst_icms_ent:'',aliq_icms_ent:'',cst_pis_ent:'',aliq_pis_ent:'',
         cst_cof_ent:'',aliq_cof_ent:'',
         ult_custo:0,dt_ult_compra:'',qtd_compras:0,total_comprado:0,
@@ -2503,19 +2648,20 @@ function buildConsolidado(){
       return db.localeCompare(da);
     });
     const u=sorted[0];
-    consData[norm].cst_icms_ent  = u.cstIcms   || consData[norm].cst_icms_ent;
-    consData[norm].aliq_icms_ent = u.aliqIcms ? u.aliqIcms+'%' : consData[norm].aliq_icms_ent;
-    consData[norm].cst_pis_ent   = u.cstPis    || consData[norm].cst_pis_ent;
-    consData[norm].aliq_pis_ent  = u.aliqPis  ? u.aliqPis+'%' : consData[norm].aliq_pis_ent;
-    consData[norm].cst_cof_ent   = u.cstCofins || consData[norm].cst_cof_ent;
-    consData[norm].aliq_cof_ent  = u.aliqCofins? u.aliqCofins+'%' : consData[norm].aliq_cof_ent;
+    consData[norm].cst_icms_ent  = u.cstIcms || '';
+    consData[norm].aliq_icms_ent = u.aliqIcms ? u.aliqIcms+'%' : '';
+    consData[norm].cst_pis_ent   = u.cstPis || '';
+    consData[norm].aliq_pis_ent  = u.aliqPis ? u.aliqPis+'%' : '';
+    consData[norm].cst_cof_ent   = u.cstCofins || '';
+    consData[norm].aliq_cof_ent  = u.aliqCofins ? u.aliqCofins+'%' : '';
     if(u.vlUnit>0){
       consData[norm].ult_custo     = u.vlUnit;
       consData[norm].dt_ult_compra = u.dtEnt || u.mes || '';
     }
     consData[norm].qtd_compras    = itens.length;
     consData[norm].total_comprado = itens.reduce((s,i)=>s+i.vlLiq,0);
-    if(consData[norm].cfop_ent==='') consData[norm].cfop_ent=u.cfop||'';
+    // CFOP de entrada deve refletir o item mais recente do SPED
+    consData[norm].cfop_ent = u.cfop || consData[norm].cfop_ent;
     if(consData[norm].fonte==='XML') consData[norm].fonte='XML+SPED';
     else if(consData[norm].fonte==='SPED') consData[norm].fonte='SPED';
     else consData[norm].fonte='XML+SPED';
@@ -2537,7 +2683,7 @@ function buildConsolidado(){
     const targetKey = findConsKeyByImportedCode(cod);
     if(!consData[targetKey]){
       // Produto novo vindo apenas do CSV
-      consData[targetKey]={ codigo:targetKey,descricao:'',ean:'',ncm:'',cest:'',cfop_ent:'',unidade:'',
+      consData[targetKey]={ codigo:targetKey,descricao:'',ean:'',ncm:'',cest:'',anp:'',classtrib:'',ibs:'',cbs:'',cfop_ent:'',unidade:'',
         cst_icms_ent:'',aliq_icms_ent:'',cst_pis_ent:'',aliq_pis_ent:'',cst_cof_ent:'',aliq_cof_ent:'',
         ult_custo:0,dt_ult_compra:'',qtd_compras:0,total_comprado:0,
         ult_preco_venda:0,dt_ult_venda:'',qtd_vendas:0,
@@ -2553,6 +2699,7 @@ function buildConsolidado(){
   document.getElementById('badge-cons').textContent=Object.keys(consData).length;
   buildConsColDefs();
   renderConsolidado();
+  updateImplantacaoUX();
 }
 
 function buildConsColDefs(){
@@ -2590,7 +2737,12 @@ function renderConsolidado(){
     (p.descricao||'').toLowerCase().includes(q)||
     (p.ncm||'').includes(q)||
     (p.ean||'').includes(q));
-  list.sort((a,b)=>(a.descricao||'').localeCompare(b.descricao||''));
+  list.sort((a,b)=>{
+    const qa=qualidadeCadastro(a).lvl;
+    const qb=qualidadeCadastro(b).lvl;
+    if(qb!==qa) return qb-qa;
+    return (a.descricao||'').localeCompare(b.descricao||'');
+  });
 
   document.getElementById('cons-count').textContent=list.length;
   const wrap=document.getElementById('cons-tbl-wrap');
@@ -2600,7 +2752,7 @@ function renderConsolidado(){
     return;
   }
 
-  const allCols=[...CONS_FIXED_COLS,...consExtraCols].filter(k=>consVisCols.has(k));
+  const allCols=['qualidade',...CONS_FIXED_COLS,...consExtraCols].filter(k=>k==='qualidade'||consVisCols.has(k));
   // Paginação
   const totPgs=Math.ceil(list.length/CONS_PER);
   if(consPg>totPgs)consPg=Math.max(1,totPgs);
@@ -2611,6 +2763,10 @@ function renderConsolidado(){
     const tds=allCols.map(k=>{
       const v=p[k]??'';
       const num=typeof v==='number';
+      if(k==='qualidade'){
+        const ql=qualidadeCadastro(p);
+        return `<td><span class="qual ${ql.cls}">${ql.lbl}</span></td>`;
+      }
       if(k==='fonte'){
         const col=v.includes('CSV')?'var(--amber)':v.includes('SPED')?'var(--accent2)':'var(--green)';
         return`<td><span style="font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:99px;border:1px solid ${col};color:${col}">${v}</span></td>`;
@@ -2669,98 +2825,155 @@ function handleCsvDrop(e){
 
 function importCSV(file){
   if(!file)return;
-  // Feedback imediato
-  setImpStatus('csv-log','loading',`⏳ Lendo <b>${file.name}</b>... (${(file.size/1024).toFixed(1)} KB)`);
+  const csvInput=document.getElementById('csv-input');
+  setImpStatus('csv-log','loading',`? Lendo <b>${file.name}</b>... (${(file.size/1024).toFixed(1)} KB)`);
   const reader=new FileReader();
   reader.onload=e=>{
-    setImpStatus('csv-log','loading',`⏳ Processando <b>${file.name}</b>...`);
-    // Pequeno delay para o navegador redesenhar antes de processar
+    setImpStatus('csv-log','loading',`? Lendo cabe?alho de <b>${file.name}</b>...`);
     setTimeout(()=>{
       try{
-        let text=e.target.result;
-        if(typeof text!=='string') text=new TextDecoder('windows-1252').decode(text);
-        parseImportedCSV(text, file.name);
-      } catch(err){
-        setImpStatus('csv-log','err',`✗ Erro ao ler ${file.name}: ${err.message}`);
+        const text=decodeImportedText(e.target.result);
+        prepareCsvImport(text, file.name);
+      }catch(err){
+        setImpStatus('csv-log','err',`? Erro ao ler ${file.name}: ${err.message}`);
         toast('Erro ao importar CSV','err');
       }
-    }, 30);
+      if(csvInput) csvInput.value='';
+    },30);
   };
   reader.onerror=()=>{
-    // Tentar como ArrayBuffer (Latin-1)
-    const r2=new FileReader();
-    r2.onload=e2=>{
-      setTimeout(()=>{
-        try{
-          const text=new TextDecoder('windows-1252').decode(e2.target.result);
-          parseImportedCSV(text, file.name);
-        } catch(err){
-          setImpStatus('csv-log','err',`✗ Erro: ${err.message}`);
-        }
-      }, 30);
-    };
-    r2.readAsArrayBuffer(file);
+    setImpStatus('csv-log','err',`? Erro ao ler ${file.name}`);
+    if(csvInput) csvInput.value='';
   };
-  reader.readAsText(file,'utf-8');
+  reader.readAsArrayBuffer(file);
 }
 
-function parseImportedCSV(text, filename){
-  const lines=text.split(/\r?\n/).filter(l=>l.trim());
-  if(lines.length<2){toast('CSV vazio ou inválido','err');return;}
-  // Detect separator
-  const sep=lines[0].includes(';')?';':',';
-  const headers=lines[0].split(sep).map(h=>h.replace(/^["']|["']$/g,'').trim().toLowerCase());
-  // Find code column
-  const codeCol=headers.findIndex(h=>['codigo','cod','cProd','cprod','code','cod_item','coditem'].includes(h));
-  if(codeCol<0){toast('CSV precisa de coluna "codigo" ou "cProd"','err');return;}
+function prepareCsvImport(text, filename){
+  const hasBaseData = allProds.length>0 || (spedData.empresa&&spedData.empresa.cnpj);
+  if(!hasBaseData){
+    setImpStatus('csv-log','err','✗ Importe XML ou SPED antes do CSV complementar.');
+    toast('Importe XML ou SPED antes do CSV','err');
+    return;
+  }
+  const sep=detectCsvSeparator(text);
+  const rows=parseDelimitedText(text, sep);
+  if(rows.length<2){toast('CSV vazio ou inválido','err');return;}
 
-  // New extra cols (not already in fixed)
-  const newCols=headers.filter((h,i)=>i!==codeCol&&!CONS_FIXED_COLS.includes(h)&&h);
-  newCols.forEach(k=>{if(!consExtraCols.includes(k))consExtraCols.push(k);});
+  const rawHeaders=rows[0].map(h=>String(h||'').replace(/\uFEFF/g,'').trim());
+  const headers=rawHeaders.map(normalizeHeader);
+  const codeAliases=new Set(['codigo','cod','cprod','code','cod_item','coditem','codigo_venda']);
+  let defaultCodeCol=headers.findIndex(h=>codeAliases.has(h));
+  if(defaultCodeCol<0) defaultCodeCol=0;
 
-  let updated=0,added=0;
-  csvExtra={};
-  lines.slice(1).forEach(line=>{
-    if(!line.trim())return;
-    const vals=line.split(sep).map(v=>v.replace(/^["']|["']$/g,'').trim());
-    const cod=(vals[codeCol]||'').replace(/^0+/,'')||vals[codeCol];
-    if(!cod)return;
-    const obj={};
-    headers.forEach((h,i)=>{if(i!==codeCol&&h)obj[h]=vals[i]||'';});
-    csvExtra[cod]=obj;
-    if(consData[cod]){updated++;} else{added++;}
+  pendingCsvImport={ text, filename, sep, rows, rawHeaders, headers, defaultCodeCol };
+  const codeSel=document.getElementById('csv-code-col');
+  const extrasWrap=document.getElementById('csv-extra-cols');
+  const cfg=document.getElementById('csv-config');
+  if(!codeSel||!extrasWrap||!cfg){
+    toast('Configuração de CSV indisponível','err');
+    return;
+  }
+
+  codeSel.innerHTML='';
+  rawHeaders.forEach((h, idx)=>{
+    const opt=document.createElement('option');
+    opt.value=String(idx);
+    opt.textContent=`${h||'(sem nome)'} (${headers[idx]||'coluna_'+(idx+1)})`;
+    if(idx===defaultCodeCol) opt.selected=true;
+    codeSel.appendChild(opt);
   });
 
-  // Rebuild cons with new CSV data
+  extrasWrap.innerHTML='';
+  rawHeaders.forEach((h,idx)=>{
+    const norm=headers[idx];
+    if(!norm) return;
+    const row=document.createElement('label');
+    row.className='col-opt';
+    const checked = idx===defaultCodeCol ? '' : 'checked';
+    row.innerHTML=`
+      <input type="checkbox" ${checked} data-col-idx="${idx}" onchange="syncCsvExtraToggleAll()">
+      <span>${h||'(sem nome)'} <span style="color:var(--muted);font-family:var(--mono)">(${norm})</span></span>
+      <select class="fi" data-target-idx="${idx}" style="max-width:220px;margin-left:auto">
+        ${csvTargetOptions(norm)}
+      </select>
+    `;
+    extrasWrap.appendChild(row);
+  });
+
+  cfg.style.display='block';
+  const master=document.getElementById('csv-extra-toggle-all');
+  if(master){ master.checked=true; master.indeterminate=false; }
+  syncCsvExtraToggleAll();
+  setImpStatus('csv-log','ok',`✓ <b>${filename}</b> carregado. Selecione coluna índice e colunas extras, depois clique em <b>Aplicar importação CSV</b>.`);
+}
+
+function applyCsvImport(){
+  const hasBaseData = allProds.length>0 || (spedData.empresa&&spedData.empresa.cnpj);
+  if(!hasBaseData){
+    setImpStatus('csv-log','err','✗ Importe XML ou SPED antes de aplicar o CSV.');
+    toast('Importe XML ou SPED antes do CSV','err');
+    return;
+  }
+  if(!pendingCsvImport){
+    toast('Nenhum CSV preparado','err');
+    return;
+  }
+
+  const {rows,rawHeaders,headers,filename}=pendingCsvImport;
+  const codeSel=document.getElementById('csv-code-col');
+  const extrasWrap=document.getElementById('csv-extra-cols');
+  const codeCol=Number(codeSel ? codeSel.value : -1);
+  if(!Number.isInteger(codeCol)||codeCol<0||codeCol>=headers.length){
+    toast('Selecione uma coluna índice válida','err');
+    return;
+  }
+
+  const selectedIdx=[...extrasWrap.querySelectorAll('input[type="checkbox"][data-col-idx]:checked')]
+    .map(cb=>Number(cb.getAttribute('data-col-idx')))
+    .filter(i=>Number.isInteger(i)&&i>=0&&i<headers.length&&i!==codeCol);
+  const selectedSet=new Set(selectedIdx);
+  const targetByIdx={};
+  [...extrasWrap.querySelectorAll('select[data-target-idx]')].forEach(sel=>{
+    const idx=Number(sel.getAttribute('data-target-idx'));
+    if(Number.isInteger(idx)) targetByIdx[idx]=normalizeHeader(sel.value||headers[idx]||'');
+  });
+
+  let updated=0,added=0;
+  rows.slice(1).forEach(cols=>{
+    const codeValue=String(cols[codeCol]||'').trim();
+    const cod=codeValue.replace(/^0+/,'')||codeValue;
+    if(!cod)return;
+    const obj={};
+    headers.forEach((h,i)=>{
+      if(i!==codeCol&&h&&selectedSet.has(i)){
+        const target = targetByIdx[i] || h;
+        obj[target]=String(cols[i]??'').trim();
+      }
+    });
+    const existed=!!csvExtra[cod];
+    csvExtra[cod]=Object.assign({},csvExtra[cod]||{},obj);
+    if(existed || consData[findConsKeyByImportedCode(cod)]) updated++;
+    else added++;
+  });
+
+  const selectedCols=selectedIdx
+    .map(i=>targetByIdx[i]||headers[i])
+    .filter(h=>h&&!CONS_FIXED_COLS.includes(h));
+  csvImportHeaders = Array.from(new Set([...(csvImportHeaders||[]), ...selectedIdx.map(i=>rawHeaders[i])]));
+  consExtraCols = Array.from(new Set([...(consExtraCols||[]), ...selectedCols]));
+
   buildConsolidado();
   buildConsColDefs();
   renderConsolidado();
 
-  setImpStatus('csv-log','ok',`✓ <b>${filename}</b> — ${updated} atualizados · ${added} novos · ${newCols.length} coluna(s) extra${newCols.length?': '+newCols.join(', '):''}`)
+  const idxName=rawHeaders[codeCol]||headers[codeCol]||`coluna_${codeCol+1}`;
+  setImpStatus('csv-log','ok',`✓ <b>${filename}</b> — índice: <b>${idxName}</b> · ${updated} atualizados · ${added} novos · ${selectedCols.length} coluna(s) extra${selectedCols.length?': '+selectedCols.join(', '):''}`);
+  importMeta.csvAt=new Date().toLocaleString('pt-BR');
+  updateImplantacaoUX();
   toast(`CSV importado: ${updated} atualizados, ${added} novos`);
+  pendingCsvImport=null;
 }
 
-function exportConsCSV(){
-  if(!Object.keys(consData).length){toast('Sem dados','err');return;}
-  const esc=v=>'"'+(String(v??'').replace(/"/g,'""'))+'"';
-  const allCols=[...CONS_FIXED_COLS,...consExtraCols].filter(k=>consVisCols.has(k));
-  const hdr=allCols.map(esc).join(';');
-  const q=(document.getElementById('cons-q').value||'').toLowerCase();
-  const list=Object.values(consData).filter(p=>!q||
-    (p.codigo||'').toLowerCase().includes(q)||
-    (p.descricao||'').toLowerCase().includes(q)||
-    (p.ncm||'').includes(q)||(p.ean||'').includes(q));
-  const rows=list.map(p=>allCols.map(k=>esc(p[k]??'')).join(';'));
-  const ts_=new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
-  const blob=new Blob(['\uFEFF'+[hdr,...rows].join('\r\n')],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');
-  a.href=url;a.download=`consolidado_${ts_}.csv`;a.click();URL.revokeObjectURL(url);
-  toast('CSV consolidado exportado');
-}
-
-// ══════════════════════════════════════════════
-//  PROGRESS OVERLAY
-// ══════════════════════════════════════════════
 function decodeImportedText(buffer){
   const bytes=buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   if(bytes.length>=3&&bytes[0]===0xEF&&bytes[1]===0xBB&&bytes[2]===0xBF){
@@ -2782,32 +2995,19 @@ function detectCsvSeparator(text){
 
 function parseDelimitedText(text, sep){
   const rows=[];
-  let row=[];
-  let cell='';
-  let inQuotes=false;
+  let row=[],cell='',inQuotes=false;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(ch==='"'){
-      if(inQuotes&&text[i+1]==='"'){
-        cell+='"';
-        i++;
-      }else{
-        inQuotes=!inQuotes;
-      }
+      if(inQuotes&&text[i+1]==='"'){cell+='"';i++;} else inQuotes=!inQuotes;
       continue;
     }
-    if(ch===sep&&!inQuotes){
-      row.push(cell);
-      cell='';
-      continue;
-    }
+    if(ch===sep&&!inQuotes){row.push(cell);cell='';continue;}
     if((ch==='\n'||ch==='\r')&&!inQuotes){
       if(ch==='\r'&&text[i+1]==='\n')i++;
       row.push(cell);
       if(row.some(v=>String(v).trim()!=='')) rows.push(row);
-      row=[];
-      cell='';
-      continue;
+      row=[];cell='';continue;
     }
     cell+=ch;
   }
@@ -2883,80 +3083,38 @@ function buildExportRow(prod){
   return row;
 }
 
-function importCSV(file){
-  if(!file)return;
-  setImpStatus('csv-log','loading',`â³ Lendo <b>${file.name}</b>... (${(file.size/1024).toFixed(1)} KB)`);
-  const reader=new FileReader();
-  reader.onload=e=>{
-    setImpStatus('csv-log','loading',`â³ Processando <b>${file.name}</b>...`);
-    setTimeout(()=>{
-      try{
-        const text=decodeImportedText(e.target.result);
-        parseImportedCSV(text, file.name);
-      }catch(err){
-        setImpStatus('csv-log','err',`âœ— Erro ao ler ${file.name}: ${err.message}`);
-        toast('Erro ao importar CSV','err');
-      }
-    },30);
-  };
-  reader.onerror=()=>setImpStatus('csv-log','err',`âœ— Erro ao ler ${file.name}`);
-  reader.readAsArrayBuffer(file);
-}
-
-function parseImportedCSV(text, filename){
-  const sep=detectCsvSeparator(text);
-  const rows=parseDelimitedText(text, sep);
-  if(rows.length<2){toast('CSV vazio ou invÃ¡lido','err');return;}
-
-  const rawHeaders=rows[0].map(h=>String(h||'').replace(/\uFEFF/g,'').trim());
-  const headers=rawHeaders.map(normalizeHeader);
-  const codeAliases=new Set(['codigo','cod','cprod','code','cod_item','coditem','codigo_venda']);
-  const codeCol=headers.findIndex(h=>codeAliases.has(h));
-  if(codeCol<0){
-    toast('CSV precisa de coluna de cÃ³digo, como CODIGO_VENDA, codigo ou cProd','err');
-    return;
-  }
-
-  csvImportHeaders = rawHeaders;
-  const newCols=headers.filter((h,i)=>i!==codeCol&&!CONS_FIXED_COLS.includes(h)&&h);
-  newCols.forEach(k=>{if(!consExtraCols.includes(k))consExtraCols.push(k);});
-
-  let updated=0,added=0;
-  csvExtra={};
-  rows.slice(1).forEach(cols=>{
-    const codeValue=String(cols[codeCol]||'').trim();
-    const cod=codeValue.replace(/^0+/,'')||codeValue;
-    if(!cod)return;
-    const obj={};
-    headers.forEach((h,i)=>{
-      if(i!==codeCol&&h) obj[h]=String(cols[i]??'').trim();
-    });
-    csvExtra[cod]=obj;
-    if(consData[findConsKeyByImportedCode(cod)]) updated++;
-    else added++;
-  });
-
-  buildConsolidado();
-  buildConsColDefs();
-  renderConsolidado();
-
-  setImpStatus('csv-log','ok',`âœ“ <b>${filename}</b> â€” ${updated} atualizados Â· ${added} novos Â· ${newCols.length} coluna(s) extra${newCols.length?': '+newCols.join(', '):''}`);
-  toast(`CSV importado: ${updated} atualizados, ${added} novos`);
-}
-
 function exportConsCSV(){
   if(!Object.keys(consData).length){toast('Sem dados','err');return;}
   const esc=v=>'"'+(String(v??'').replace(/"/g,'""'))+'"';
-  const list=getConsFilteredList();
+  const sourceFilter=(document.getElementById('cons-export-fontes')||{}).value||'all';
+  const sourceMatch=(prod)=>{
+    const srcSet=new Set(String(prod.fonte||'').split('+').map(s=>s.trim()).filter(Boolean));
+    if(sourceFilter==='all') return true;
+    if(sourceFilter==='xml_sped_csv') return srcSet.size===3&&srcSet.has('XML')&&srcSet.has('SPED')&&srcSet.has('CSV');
+    if(sourceFilter==='sped_csv') return srcSet.size===2&&srcSet.has('SPED')&&srcSet.has('CSV');
+    if(sourceFilter==='xml_csv') return srcSet.size===2&&srcSet.has('XML')&&srcSet.has('CSV');
+    return true;
+  };
+  const list=getConsFilteredList().filter(sourceMatch);
+  if(!list.length){toast('Nenhum item para o filtro de fontes selecionado','err');return;}
+  const resumoFontes = list.reduce((acc,p)=>{
+    const key=String(p.fonte||'').trim()||'N/A';
+    acc[key]=(acc[key]||0)+1;
+    return acc;
+  },{});
+  const msgResumo = Object.entries(resumoFontes).map(([k,v])=>`${k}: ${v}`).join('\n');
+  const ok = confirm(
+    `Pre-visualizacao da exportacao\\n\\nItens: ${list.length}\\nFiltro: ${sourceFilter}\\nColunas modelo: ${EXPORT_TEMPLATE_HEADERS.length}\\n\\nComposicao por fonte:\\n${msgResumo}\\n\\nDeseja continuar?`
+  );
+  if(!ok) return;
   const hdr=EXPORT_TEMPLATE_HEADERS.map(esc).join(';');
   const rows=list.map(prod=>{
     const row=buildExportRow(prod);
     return EXPORT_TEMPLATE_HEADERS.map(header=>esc(row[header]||'')).join(';');
   });
   dlCSV([hdr,...rows].join('\r\n'),`modelo_exportacao_${ts()}.csv`);
-  toast('CSV exportado no layout do modelo');
+  toast(`CSV exportado: ${list.length} item(ns)`);
 }
-
 const Prog = {
   _steps: [],
   show(title, steps){
@@ -3022,6 +3180,8 @@ function setImpStatus(id, type, html){
   el.style.display = 'block';
 }
 
+updateImplantacaoUX();
+
 function doLogin(){}
 
 function toast(msg,type='ok'){
@@ -3032,3 +3192,6 @@ function toast(msg,type='ok'){
 </script>
 </body>
 </html>
+
+
+
