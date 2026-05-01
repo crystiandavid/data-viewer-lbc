@@ -264,56 +264,8 @@ tr:hover td{background:rgba(23,28,43,.8)}
 .imp-status.err{border-left-color:var(--red);color:var(--red)}
 
 /* ── LOGIN ── */
-#login-overlay{
-  position:fixed;inset:0;z-index:9999;
-  background:var(--bg);
-  display:flex;align-items:center;justify-content:center;
-}
-.login-box{
-  background:var(--s1);
-  border:1px solid var(--b2);
-  border-radius:12px;
-  padding:40px 44px 36px;
-  width:340px;
-  display:flex;flex-direction:column;align-items:center;gap:0;
-}
-.login-brand{
-  display:flex;align-items:center;gap:10px;
-  font-family:var(--mono);font-size:13px;font-weight:600;
-  letter-spacing:.14em;color:var(--accent2);text-transform:uppercase;
-  margin-bottom:28px;
-}
-.login-brand-dot{
-  width:9px;height:9px;border-radius:50%;
-  background:var(--accent);box-shadow:0 0 10px var(--accent);
-  animation:pulse 2s ease-in-out infinite;
-}
-.login-label{
-  font-family:var(--mono);font-size:9px;font-weight:600;
-  letter-spacing:.14em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:6px;align-self:flex-start;
-}
-.login-input{
-  width:100%;background:var(--s2);border:1px solid var(--b2);
-  color:var(--text);font-family:var(--mono);font-size:13px;
-  padding:10px 14px;border-radius:var(--r);outline:none;
-  transition:border-color .15s;margin-bottom:16px;
-}
-.login-input:focus{border-color:var(--accent);}
-.login-input::placeholder{color:var(--muted)}
-.login-btn{
-  width:100%;padding:11px;border-radius:var(--r);
-  background:var(--accent);color:#fff;
-  font-family:var(--mono);font-size:11px;font-weight:600;
-  letter-spacing:.08em;text-transform:uppercase;
-  cursor:pointer;border:none;transition:all .15s;margin-top:4px;
-}
-.login-btn:hover{background:var(--accent2);}
-.login-btn:active{transform:scale(.98);}
-.login-err{
-  font-family:var(--mono);font-size:11px;color:var(--red);
-  margin-top:10px;min-height:16px;text-align:center;
-}
+#login-overlay{display:none!important}
+.login-label,.login-input{display:none!important}
 </style>
 </head>
 <body>
@@ -329,24 +281,6 @@ tr:hover td{background:rgba(23,28,43,.8)}
     </div>
     <div class="prog-bar-track"><div class="prog-bar-fill" id="prog-bar" style="width:0%"></div></div>
     <div class="prog-stats" id="prog-stats"></div>
-  </div>
-</div>
-
-<!-- LOGIN -->
-<div id="login-overlay">
-  <div class="login-box">
-    <div class="login-brand">
-      <div class="login-brand-dot"></div>
-      Data Viewer
-    </div>
-    <div class="login-label">Usuário</div>
-    <input class="login-input" id="li-user" type="text" placeholder="usuário" autocomplete="username"
-           onkeydown="if(event.key==='Enter')document.getElementById('li-pass').focus()">
-    <div class="login-label">Senha</div>
-    <input class="login-input" id="li-pass" type="password" placeholder="••••••"
-           onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" onclick="doLogin()">Entrar</button>
-    <div class="login-err" id="li-err"></div>
   </div>
 </div>
 
@@ -689,8 +623,12 @@ let openRow=null;
 const NUM_FIELDS=new Set([
   // <prod>
   'qCom','vUnCom','vProd','qTrib','vUnTrib','vDesc','vOutro','vFrete','vSeg',
+  // Combustível (ANP) — campos numéricos
+  'comb_qTemp','comb_pBio','comb_encerrante_vEncIni','comb_encerrante_vEncFin',
+  'comb_origComb_pOrig',
   // ICMS
   'ICMS60_vBC','ICMS60_pICMS','ICMS60_vICMS',
+  'ICMS61_qBCMonoRet','ICMS61_adRemICMSRet','ICMS61_vICMSMonoRet',
   'ICMS00_vBC','ICMS00_pICMS','ICMS00_vICMS',
   'ICMS10_vBC','ICMS10_pICMS','ICMS10_vICMS','ICMS10_vBCST','ICMS10_pICMSST','ICMS10_vICMSST',
   'ICMS20_vBC','ICMS20_pRedBC','ICMS20_pICMS','ICMS20_vICMS',
@@ -717,16 +655,51 @@ const DESC_FIELDS=new Set(['xProd','infAdFisco','obs','xPed','xCont']);
 // Colunas dinâmicas — descobertas após carregar os XMLs
 let COLS=[];
 let visCols=new Set();
+const EXPORT_TEMPLATE_HEADERS = [
+  'CODIGO_VENDA_ANTERIOR','CODIGO_VENDA','STATUS','CONTA_CONTABIL_ENTRADA','CONTA_CONTABIL_SAIDA',
+  'DESCRICAO','DESCRICAO_FISCAL','CODIGO_NBMSH(NCM)','CEST','ANP','CODIGO_SEFAZ','TIPO_PRODUTO',
+  'TIPO_PRODUTO_FISCAL','CFOP_E','CFOP_S','CST_SAIDA_PRODUTOS','CST_ENTRADA_PRODUTOS',
+  'CLASSIFICACAO_FISCAL','UNIDADE_MEDIDA','UNIDADE_POR_CAIXA','EXPORTAR_PISTA','GRUPO_OPERACIONAL',
+  'GRUPO','SUB-GRUPO','FAMILIA','TIPO_COMISSAO','VALOR_COMISSAO','PRECO_CUSTO','MARGEM_LUCRO',
+  'PRECO_VENDA','DESCONTO_QUANTIDADE_MINIMA','DESCONTO_PERCENTUAL_MAXIMO','PIS_CSTE','PIS_CSTS',
+  'PIS_NAT_REC','ALIQUOTA_PIS','COFINS','COFINS_CSTE','COFINS_CSTS','COFINS_NAT_REC',
+  'ALIQUOTA_COFINS','ALIQUOTA_ICMS','BASE_ICMS','REDUCAO_ICMS','ALIQUOTA_ICMSST','BASE_ICMSST',
+  'ALIQUOTA_IPI','BASE_IPI','ALIQUOTA_ICMSEFETIVO','BASE_ICMSEFETIVO','COD_BENEFICO_FISCAL',
+  'MOTIVO_DESONERACAO','ISENTO','ALIQUOTA_FCP','VALIQUOTA_FCP_INICIO','VALIQUOTA_FCP_FIM',
+  'CONTA_CONTABIL_CMV','ESTOQUE_DEPOSITO','ESTOQUE_PISTA','ESTOQUE_BASE_PISTA','ESTOQUE_TROCA_DE_OLEO',
+  'ESTOQUE_BASE_TROCA_DE_OLEO','ESTOQUE_MINIMO','ESTOQUE_MAXIMO','DESTINO_PADRAO_COMPRAS',
+  'ESTOQUE_IMPLANTACAO_PISTA','ESTOQUE_IMPLANTACAO_DEPOSITO','ESTOQUE_IMPLANTACAO_OLEO','RTC_CSTE',
+  'RTC_CSTS','RTC_CLASSTRIBUTARIA','RTC_IBSCBS_ALIQIBSMUN','RTC_IBSCBS_ALIQIBSUF','RTC_IBSCBS_ALIQCBS',
+  'RTC_IBSCBS_BASECALC','RTC_IBSCBSMONO_ALIQADREMIBS','RTC_IBSCBSMONO_ALIQADREMCBS','RTC_IS_ALIQUOTA',
+  'RTC_IS_BASECALC','RESULTADO','INDEXFIELD_LBC'
+];
+
+function normalizeHeader(name){
+  return String(name||'')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/\uFEFF/g,'')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'');
+}
 
 // Ordem preferencial — <prod> primeiro, depois impostos agrupados
 const PREFERRED_ORDER=[
   // Identificação
   'cProd','cEAN','xProd','NCM','CEST','CFOP','uCom',
+  // Combustível (ANP) — quando aplicável
+  'comb_cProdANP','comb_descANP','comb_qTemp','comb_UFCons','comb_pBio',
+  'comb_encerrante_nBico','comb_encerrante_nBomba','comb_encerrante_nTanque',
+  'comb_encerrante_vEncIni','comb_encerrante_vEncFin',
+  'comb_origComb_indImport','comb_origComb_cUFOrig','comb_origComb_pOrig',
   // Valores comerciais
   'qCom','vUnCom','vProd','vDesc','vOutro','indTot',
   // Tributação
   'cEANTrib','uTrib','qTrib','vUnTrib',
-  // ICMS
+  // ICMS — incluindo ICMS61 (monofásico de combustíveis)
+  'ICMS61_orig','ICMS61_CST','ICMS61_qBCMonoRet','ICMS61_adRemICMSRet','ICMS61_vICMSMonoRet',
   'ICMS00_orig','ICMS00_CST','ICMS00_modBC','ICMS00_vBC','ICMS00_pICMS','ICMS00_vICMS',
   'ICMS10_orig','ICMS10_CST','ICMS10_vBC','ICMS10_pICMS','ICMS10_vICMS','ICMS10_vBCST','ICMS10_pICMSST','ICMS10_vICMSST',
   'ICMS20_orig','ICMS20_CST','ICMS20_pRedBC','ICMS20_vBC','ICMS20_pICMS','ICMS20_vICMS',
@@ -851,6 +824,28 @@ async function processFiles(fileList){
   allProds=allFiles.flatMap(f=>f.produtos);
   Prog.step(1,'active',`${allProds.length} itens extraídos — montando colunas...`);
   await new Promise(r=>setTimeout(r,0));
+  // Enriquecer labels dos campos de combustível (ANP) e impostos
+  const ENRICHED_LABELS={
+    'comb_cProdANP':'Código ANP',
+    'comb_descANP':'Descrição ANP',
+    'comb_qTemp':'Qtde Temporizador',
+    'comb_UFCons':'UF Consumo',
+    'comb_pBio':'% Biodiesel',
+    'comb_encerrante_nBico':'Bico',
+    'comb_encerrante_nBomba':'Bomba',
+    'comb_encerrante_nTanque':'Tanque',
+    'comb_encerrante_vEncIni':'Vl.Enc Inicial',
+    'comb_encerrante_vEncFin':'Vl.Enc Final',
+    'comb_origComb_indImport':'Importado',
+    'comb_origComb_cUFOrig':'UF Origem',
+    'comb_origComb_pOrig':'% Origem',
+    'ICMS61_orig':'ICMS61 Origem',
+    'ICMS61_CST':'ICMS61 CST',
+    'ICMS61_qBCMonoRet':'ICMS61 Qtde BC Mono',
+    'ICMS61_adRemICMSRet':'ICMS61 Alíq.Rem',
+    'ICMS61_vICMSMonoRet':'ICMS61 Vl.Monofásico',
+  };
+  Object.assign(fieldLabels, ENRICHED_LABELS);
   buildDynamicCols(discoveredFields);
   Prog.step(1,'done'); Prog.step(2,'active',`Agrupando ${allProds.length} itens em SKUs únicos...`);
   Prog.bar(62);
@@ -2430,6 +2425,15 @@ const CONS_FIXED_COLS = [
   'fonte'
 ];
 let consExtraCols = []; // colunas vindas do CSV importado
+let csvImportHeaders = [];
+
+function findConsKeyByImportedCode(code){
+  const raw=String(code||'').trim();
+  const norm=raw.replace(/^0+/,'')||raw;
+  if(consData[norm]) return norm;
+  const found=Object.values(consData).find(prod=>(prod.ean||'').trim()===raw);
+  return found ? found.codigo : norm;
+}
 
 function buildConsolidado(){
   consData = {};
@@ -2530,19 +2534,19 @@ function buildConsolidado(){
 
   // ── 3. Sobrescrever/complementar com CSV importado ──
   Object.entries(csvExtra).forEach(([cod, extra])=>{
-    const norm = cod.replace(/^0+/,'') || cod;
-    if(!consData[norm]){
+    const targetKey = findConsKeyByImportedCode(cod);
+    if(!consData[targetKey]){
       // Produto novo vindo apenas do CSV
-      consData[norm]={ codigo:norm,descricao:'',ean:'',ncm:'',cest:'',cfop_ent:'',unidade:'',
+      consData[targetKey]={ codigo:targetKey,descricao:'',ean:'',ncm:'',cest:'',cfop_ent:'',unidade:'',
         cst_icms_ent:'',aliq_icms_ent:'',cst_pis_ent:'',aliq_pis_ent:'',cst_cof_ent:'',aliq_cof_ent:'',
         ult_custo:0,dt_ult_compra:'',qtd_compras:0,total_comprado:0,
         ult_preco_venda:0,dt_ult_venda:'',qtd_vendas:0,
         cfops_saida:'',vl_icms_saida:0,vl_st_saida:0,fonte:'CSV' };
-    } else {
-      consData[norm].fonte += '+CSV';
+    } else if(!consData[targetKey].fonte.includes('CSV')) {
+      consData[targetKey].fonte += '+CSV';
     }
     Object.entries(extra).forEach(([k,v])=>{
-      if(v!==''&&v!==undefined) consData[norm][k]=v;
+      if(v!==''&&v!==undefined) consData[targetKey][k]=v;
     });
   });
 
@@ -2757,6 +2761,202 @@ function exportConsCSV(){
 // ══════════════════════════════════════════════
 //  PROGRESS OVERLAY
 // ══════════════════════════════════════════════
+function decodeImportedText(buffer){
+  const bytes=buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  if(bytes.length>=3&&bytes[0]===0xEF&&bytes[1]===0xBB&&bytes[2]===0xBF){
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+  try{
+    return new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+  }catch{
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+function detectCsvSeparator(text){
+  const firstLine=(text.split(/\r?\n/).find(l=>l.trim())||'');
+  const semi=(firstLine.match(/;/g)||[]).length;
+  const comma=(firstLine.match(/,/g)||[]).length;
+  return semi>=comma?';':',';
+}
+
+function parseDelimitedText(text, sep){
+  const rows=[];
+  let row=[];
+  let cell='';
+  let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='"'){
+      if(inQuotes&&text[i+1]==='"'){
+        cell+='"';
+        i++;
+      }else{
+        inQuotes=!inQuotes;
+      }
+      continue;
+    }
+    if(ch===sep&&!inQuotes){
+      row.push(cell);
+      cell='';
+      continue;
+    }
+    if((ch==='\n'||ch==='\r')&&!inQuotes){
+      if(ch==='\r'&&text[i+1]==='\n')i++;
+      row.push(cell);
+      if(row.some(v=>String(v).trim()!=='')) rows.push(row);
+      row=[];
+      cell='';
+      continue;
+    }
+    cell+=ch;
+  }
+  row.push(cell);
+  if(row.some(v=>String(v).trim()!=='')) rows.push(row);
+  return rows;
+}
+
+function firstFilled(...values){
+  for(const value of values){
+    if(value===null||value===undefined) continue;
+    const text=String(value).trim();
+    if(text!=='') return text;
+  }
+  return '';
+}
+
+function parseLocaleNumber(value){
+  if(value===null||value===undefined) return null;
+  let text=String(value).trim().replace(/%/g,'').replace(/\s+/g,'');
+  if(!text) return null;
+  if(text.includes(',')&&text.includes('.')){
+    text = text.lastIndexOf(',')>text.lastIndexOf('.')
+      ? text.replace(/\./g,'').replace(',', '.')
+      : text.replace(/,/g,'');
+  }else if(text.includes(',')){
+    text=text.replace(',', '.');
+  }
+  const num=Number(text);
+  return Number.isFinite(num)?num:null;
+}
+
+function formatModelDecimal(value, digits=2){
+  const num=parseLocaleNumber(value);
+  if(num===null) return '';
+  return num.toFixed(digits).replace('.',',');
+}
+
+function getConsFilteredList(){
+  const q=(document.getElementById('cons-q').value||'').toLowerCase();
+  return Object.values(consData).filter(p=>!q||
+    (p.codigo||'').toLowerCase().includes(q)||
+    (p.descricao||'').toLowerCase().includes(q)||
+    (p.ncm||'').includes(q)||
+    (p.ean||'').includes(q));
+}
+
+function buildExportRow(prod){
+  const imported=csvExtra[prod.codigo]||csvExtra[String(prod.ean||'').trim()]||{};
+  const row={};
+  EXPORT_TEMPLATE_HEADERS.forEach(header=>{
+    row[header]=imported[normalizeHeader(header)]||'';
+  });
+
+  row.CODIGO_VENDA = firstFilled(row.CODIGO_VENDA, prod.ean, prod.codigo);
+  row.DESCRICAO = firstFilled(row.DESCRICAO, prod.descricao);
+  row.DESCRICAO_FISCAL = firstFilled(row.DESCRICAO_FISCAL, row.DESCRICAO);
+  row['CODIGO_NBMSH(NCM)'] = firstFilled(row['CODIGO_NBMSH(NCM)'], prod.ncm);
+  row.CEST = firstFilled(row.CEST, prod.cest);
+  row.CFOP_E = firstFilled(row.CFOP_E, prod.cfop_ent);
+  row.CFOP_S = firstFilled(row.CFOP_S, prod.cfops_saida);
+  row.CST_ENTRADA_PRODUTOS = firstFilled(row.CST_ENTRADA_PRODUTOS, prod.cst_icms_ent);
+  row.UNIDADE_MEDIDA = firstFilled(row.UNIDADE_MEDIDA, prod.unidade);
+  row.PRECO_CUSTO = firstFilled(row.PRECO_CUSTO, formatModelDecimal(prod.ult_custo));
+  row.PRECO_VENDA = firstFilled(row.PRECO_VENDA, formatModelDecimal(prod.ult_preco_venda));
+  row.PIS_CSTE = firstFilled(row.PIS_CSTE, prod.cst_pis_ent);
+  row.COFINS_CSTE = firstFilled(row.COFINS_CSTE, prod.cst_cof_ent);
+  row.ALIQUOTA_PIS = firstFilled(row.ALIQUOTA_PIS, formatModelDecimal(prod.aliq_pis_ent));
+  row.ALIQUOTA_COFINS = firstFilled(row.ALIQUOTA_COFINS, formatModelDecimal(prod.aliq_cof_ent));
+  row.ALIQUOTA_ICMS = firstFilled(row.ALIQUOTA_ICMS, formatModelDecimal(prod.aliq_icms_ent));
+  row.STATUS = firstFilled(row.STATUS, 'I');
+  row.RESULTADO = firstFilled(row.RESULTADO, 'OK');
+  return row;
+}
+
+function importCSV(file){
+  if(!file)return;
+  setImpStatus('csv-log','loading',`â³ Lendo <b>${file.name}</b>... (${(file.size/1024).toFixed(1)} KB)`);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    setImpStatus('csv-log','loading',`â³ Processando <b>${file.name}</b>...`);
+    setTimeout(()=>{
+      try{
+        const text=decodeImportedText(e.target.result);
+        parseImportedCSV(text, file.name);
+      }catch(err){
+        setImpStatus('csv-log','err',`âœ— Erro ao ler ${file.name}: ${err.message}`);
+        toast('Erro ao importar CSV','err');
+      }
+    },30);
+  };
+  reader.onerror=()=>setImpStatus('csv-log','err',`âœ— Erro ao ler ${file.name}`);
+  reader.readAsArrayBuffer(file);
+}
+
+function parseImportedCSV(text, filename){
+  const sep=detectCsvSeparator(text);
+  const rows=parseDelimitedText(text, sep);
+  if(rows.length<2){toast('CSV vazio ou invÃ¡lido','err');return;}
+
+  const rawHeaders=rows[0].map(h=>String(h||'').replace(/\uFEFF/g,'').trim());
+  const headers=rawHeaders.map(normalizeHeader);
+  const codeAliases=new Set(['codigo','cod','cprod','code','cod_item','coditem','codigo_venda']);
+  const codeCol=headers.findIndex(h=>codeAliases.has(h));
+  if(codeCol<0){
+    toast('CSV precisa de coluna de cÃ³digo, como CODIGO_VENDA, codigo ou cProd','err');
+    return;
+  }
+
+  csvImportHeaders = rawHeaders;
+  const newCols=headers.filter((h,i)=>i!==codeCol&&!CONS_FIXED_COLS.includes(h)&&h);
+  newCols.forEach(k=>{if(!consExtraCols.includes(k))consExtraCols.push(k);});
+
+  let updated=0,added=0;
+  csvExtra={};
+  rows.slice(1).forEach(cols=>{
+    const codeValue=String(cols[codeCol]||'').trim();
+    const cod=codeValue.replace(/^0+/,'')||codeValue;
+    if(!cod)return;
+    const obj={};
+    headers.forEach((h,i)=>{
+      if(i!==codeCol&&h) obj[h]=String(cols[i]??'').trim();
+    });
+    csvExtra[cod]=obj;
+    if(consData[findConsKeyByImportedCode(cod)]) updated++;
+    else added++;
+  });
+
+  buildConsolidado();
+  buildConsColDefs();
+  renderConsolidado();
+
+  setImpStatus('csv-log','ok',`âœ“ <b>${filename}</b> â€” ${updated} atualizados Â· ${added} novos Â· ${newCols.length} coluna(s) extra${newCols.length?': '+newCols.join(', '):''}`);
+  toast(`CSV importado: ${updated} atualizados, ${added} novos`);
+}
+
+function exportConsCSV(){
+  if(!Object.keys(consData).length){toast('Sem dados','err');return;}
+  const esc=v=>'"'+(String(v??'').replace(/"/g,'""'))+'"';
+  const list=getConsFilteredList();
+  const hdr=EXPORT_TEMPLATE_HEADERS.map(esc).join(';');
+  const rows=list.map(prod=>{
+    const row=buildExportRow(prod);
+    return EXPORT_TEMPLATE_HEADERS.map(header=>esc(row[header]||'')).join(';');
+  });
+  dlCSV([hdr,...rows].join('\r\n'),`modelo_exportacao_${ts()}.csv`);
+  toast('CSV exportado no layout do modelo');
+}
+
 const Prog = {
   _steps: [],
   show(title, steps){
@@ -2822,22 +3022,7 @@ function setImpStatus(id, type, html){
   el.style.display = 'block';
 }
 
-function doLogin(){
-  const u=document.getElementById('li-user').value.trim();
-  const p=document.getElementById('li-pass').value;
-  if(u==='lbc'&&p==='8776'){
-    const ov=document.getElementById('login-overlay');
-    ov.style.opacity='0';
-    ov.style.transition='opacity .3s';
-    setTimeout(()=>ov.remove(),300);
-  } else {
-    const err=document.getElementById('li-err');
-    err.textContent='Usuário ou senha incorretos';
-    const inp=document.getElementById('li-pass');
-    inp.style.borderColor='var(--red)';
-    setTimeout(()=>{err.textContent='';inp.style.borderColor='';},2500);
-  }
-}
+function doLogin(){}
 
 function toast(msg,type='ok'){
   const el=document.getElementById('toast');
